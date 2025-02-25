@@ -149,13 +149,20 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         return
 
     # Создание PDF
-    try:
-        pdf_output_path = "/home/anna/syncli_doc/syncli_doc/output.pdf"
-        create_pdf(docx_output_path, pdf_output_path)
-    except Exception as e:
-        logging.error(f"Ошибка при создании PDF: {str(e)}")
-        await message.answer(f"Ошибка при создании PDF: {str(e)}")
-        return
+    def create_pdf(docx_path, pdf_path):
+    pdf = FPDF()
+    pdf.add_page()
+
+    # Добавляем поддержку кириллицы
+    pdf.add_font('DejaVu', '', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', uni=True)
+    pdf.set_font("DejaVu", size=13)
+
+    # Читаем текст из DOCX
+    doc = Document(docx_path)
+    for paragraph in doc.paragraphs:
+        pdf.multi_cell(0, 10, paragraph.text)
+
+    pdf.output(pdf_path)
 
     # Проверка существования файлов
     if os.path.exists(docx_output_path) and os.path.exists(pdf_output_path):
