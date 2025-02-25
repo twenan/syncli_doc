@@ -66,11 +66,20 @@ def create_pdf(docx_path, pdf_path):
         pdf.multi_cell(0, 10, paragraph.text)
     pdf.output(pdf_path)
 
-# Обработчик команды /start
 @dp.message(Command("start"))
 async def start(message: types.Message, state: FSMContext):
-    await message.answer("Введите ФИО заказчика:")
+    welcome_text = (
+        "🤖 **Что умеет этот бот?**\n"
+        "Этот бот предназначен для помощи в заполнении договоров.\n\n"
+        "Готовы начать? Нажмите кнопку ниже 👇"
+    )
+
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add(types.KeyboardButton("🚀 Начать заполнение договора"))
+
+    await message.answer(welcome_text, reply_markup=keyboard, parse_mode="Markdown")
     await state.set_state(ContractStates.GET_CUSTOMER_NAME)
+
 
 # Обработчик ввода ФИО заказчика
 @dp.message(ContractStates.GET_CUSTOMER_NAME)
