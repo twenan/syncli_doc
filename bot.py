@@ -4,7 +4,6 @@ import datetime
 import logging
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Pt
 from fpdf import FPDF
 from num2words import num2words
 from aiogram import Bot, Dispatcher, types
@@ -13,7 +12,6 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from config import Config, load_config
 
 # Настройка логирования
@@ -60,12 +58,20 @@ def replace_placeholders(doc, placeholders):
 def create_pdf(docx_path, pdf_path):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Times", size=13)
+
+    # Подключаем шрифт с поддержкой кириллицы
+    pdf.add_font('DejaVu', '', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', uni=True)
+    pdf.set_font("DejaVu", size=13)
+
+    # Читаем текст из DOCX
     doc = Document(docx_path)
     for paragraph in doc.paragraphs:
         pdf.multi_cell(0, 10, paragraph.text)
+
+    # Сохраняем PDF
     pdf.output(pdf_path)
 
+# Хендлер команды /start
 @dp.message(Command("start"))
 async def start(message: types.Message, state: FSMContext):
     welcome_text = (
@@ -74,7 +80,7 @@ async def start(message: types.Message, state: FSMContext):
         "Соберём все данные для заполнения договора шаг за шагом. Готовы начать?"
     )
 
-    # Правильное создание клавиатуры
+    # Создание клавиатуры
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[
             [types.KeyboardButton(text="🚀 Начать заполнение договора")]
@@ -84,14 +90,11 @@ async def start(message: types.Message, state: FSMContext):
 
     await message.answer(welcome_text, reply_markup=keyboard, parse_mode="Markdown")
 
-
-
-# хендлер для кнопки "🚀 Начать заполнение договора"
+# Хендлер для кнопки "🚀 Начать заполнение договора"
 @dp.message(lambda message: message.text == "🚀 Начать заполнение договора")
 async def start_contract_filling(message: types.Message, state: FSMContext):
     await message.answer("Введите ФИО заказчика:")
     await state.set_state(ContractStates.GET_CUSTOMER_NAME)
-
 
 # Обработчик ввода ФИО заказчика
 @dp.message(ContractStates.GET_CUSTOMER_NAME)
@@ -113,8 +116,6 @@ async def get_product_name(message: types.Message, state: FSMContext):
     await state.update_data(product_name=message.text)
     await message.answer("Введите банковские реквизиты (ИНН, ОГРНИП, расчетный счет, банк, БИК, корр. счет, телефон):")
     await state.set_state(ContractStates.GET_BANK_DETAILS)
-
-import logging
 
 # Обработчик ввода банковских реквизитов
 @dp.message(ContractStates.GET_BANK_DETAILS)
@@ -149,20 +150,13 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         return
 
     # Создание PDF
-    def create_pdf(docx_path, pdf_path):
-    pdf = FPDF()
-    pdf.add_page()
-
-    # Добавляем поддержку кириллицы
-    pdf.add_font('DejaVu', '', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', uni=True)
-    pdf.set_font("DejaVu", size=13)
-
-    # Читаем текст из DOCX
-    doc = Document(docx_path)
-    for paragraph in doc.paragraphs:
-        pdf.multi_cell(0, 10, paragraph.text)
-
-    pdf.output(pdf_path)
+    try:
+        pdf_output_path = "/home/anna/syncli_doc/syncli_doc/output.pdf"
+        create_pdf(docx_output_path, pdf_output_path)
+    except Exception as e:
+        logging.error(f"Ошибка при создании PDF: {str(e)}")
+        await message.answer(f"Ошибка при создании PDF: {str(e)}")
+        return
 
     # Проверка существования файлов
     if os.path.exists(docx_output_path) and os.path.exists(pdf_output_path):
