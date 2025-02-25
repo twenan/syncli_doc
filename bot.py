@@ -41,10 +41,14 @@ TEMPLATE_PATH = "template.docx"
 
 # Функция для замены меток в документе
 def replace_placeholders(doc, placeholders):
+    # Замена текста в обычных параграфах
     for paragraph in doc.paragraphs:
         for key, value in placeholders.items():
             if key in paragraph.text:
-                paragraph.text = paragraph.text.replace(key, value)
+                inline = paragraph.runs
+                for i in range(len(inline)):
+                    if key in inline[i].text:
+                        inline[i].text = inline[i].text.replace(key, value)
 
                 # Устанавливаем шрифт Times New Roman
                 for run in paragraph.runs:
@@ -53,12 +57,12 @@ def replace_placeholders(doc, placeholders):
                     run.font.size = Pt(13)  # Размер шрифта
 
                 # Применяем выравнивание для каждого конкретного случая
-                if key == "{сегодняшняя дата 1}":
+                if key == "{Сегодняшняя дата 1}":
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER  # Центр
                 
-                if key in ["{заказчик 1}", "{название товара в родительном падеже}",
-                           "{сегодняшняя дата}", "{полтора месяца вперед от сегодняшней даты}",
-                           "{сумма цифрами}", "{сумма прописью}"]:
+                if key in ["{Заказчик 1}", "{Название товара в родительном падеже}",
+                           "{Сегодняшняя дата}", "{Полтора месяца вперед от сегодняшней даты}",
+                           "{Сумма работ цифрами}", "{Сумма работ прописью}"]:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY  # Выравнивание по ширине
 
     # Замена текста в таблицах
@@ -67,7 +71,7 @@ def replace_placeholders(doc, placeholders):
             for cell in row.cells:
                 for key, value in placeholders.items():
                     if key in cell.text:
-                        cell.text = cell.text.replace(key, value)
+                        cell
 
 # Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
@@ -146,13 +150,13 @@ async def get_bank_details(message: types.Message, state: FSMContext):
     # Заполнение шаблона
     doc = Document(TEMPLATE_PATH)
     placeholders = {
-        "{сегодняшняя дата 1}": today_date,
-        "{заказчик 1}": f"Индивидуальный Предприниматель {data['customer_name']}",
-        "{название товара в родительном падеже}": data['product_name'],
-        "{сегодняшняя дата}": today_date,
-        "{полтора месяца вперед от сегодняшней даты}": future_date,
-        "{сумма цифрами}": data['contract_amount'],
-        "{сумма прописью}": num2words(int(data['contract_amount']), lang='ru') + " рублей 00 копеек"
+        "{Сегодняшняя дата 1}": today_date,
+        "{Заказчик 1}": f"Индивидуальный Предприниматель {data['customer_name']}",
+        "{Название товара в родительном падеже}": data['product_name'],
+        "{Сегодняшняя дата}": today_date,
+        "{Полтора месяца вперед от сегодняшней даты}": future_date,
+        "{Сумма цифрами}": data['contract_amount'],
+        "{Сумма прописью}": num2words(int(data['contract_amount']), lang='ru') + " рублей 00 копеек"
     }
     replace_placeholders(doc, placeholders)
 
