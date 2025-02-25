@@ -1,29 +1,18 @@
 import asyncio
 import os
 import datetime
-from docxtpl import DocxTemplate
+import logging
+from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from fpdf import FPDF
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
-from aiogram import Bot, Dispatcher, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.filters import Command
-from aiogram.enums import ChatType
-from config import Config, load_config
+from num2words import num2words
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, filters, ConversationHandler, CallbackContext
 
 # Настройка логирования
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-
-# Загрузка конфигурации бота
-config: Config = load_config()
-BOT_TOKEN: str = config.tg_bot.token
-
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
-
 
 # Константы для состояний
 GET_CUSTOMER_NAME, GET_CONTRACT_AMOUNT, GET_PRODUCT_NAME, GET_BANK_DETAILS = range(4)
@@ -37,14 +26,10 @@ def replace_placeholders(doc, placeholders):
         for key, value in placeholders.items():
             if key in paragraph.text:
                 paragraph.text = paragraph.text.replace(key, value)
-                # Выравнивание первой даты по центру
                 if key == "{Сегодняшняя дата}":
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                # Выравнивание ФИО заказчика по центру
                 if key == "{Заказчик}":
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    # Замена в таблицах
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -57,11 +42,9 @@ def create_pdf(docx_path, pdf_path):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Times", size=13)
-    
     doc = Document(docx_path)
     for paragraph in doc.paragraphs:
         pdf.multi_cell(0, 10, paragraph.text)
-    
     pdf.output(pdf_path)
 
 # Обработчик команды /start
@@ -90,8 +73,6 @@ def get_product_name(update: Update, context: CallbackContext) -> int:
 # Обработчик ввода банковских реквизитов
 def get_bank_details(update: Update, context: CallbackContext) -> int:
     context.user_data['bank_details'] = update.message.text
-
-    # Заполнение шаблона
     doc = Document(TEMPLATE_PATH)
     placeholders = {
         "{Заказчик}": f"Индивидуальный Предприниматель {context.user_data['customer_name']}",
@@ -112,26 +93,24 @@ def get_bank_details(update: Update, context: CallbackContext) -> int:
     create_pdf(docx_output_path, pdf_output_path)
 
     # Отправка файлов пользователю
-    update.message.reply_document(open(docx_output_path, 'rb'))
-    update.message.reply_document(open(pdf_output_path, 'rb'))
+    context.bot.send_document(chat_id=update.effective_chat.id, document=open(docx_output_path, 'rb'))
+    context.bot.send_document(chat_id=update.effective_chat.id, document=open(pdf_output_path, 'rb'))
 
     return ConversationHandler.END
 
 # Основная функция
 def main():
-    # Токен бота
-    token = "YOUR_TELEGRAM_BOT_TOKEN"
+    token = "7724546136:AAFYu5vosG_-jMt4EDlpjTxmMx246PUWbMk"
     updater = Updater(token, use_context=True)
     dp = updater.dispatcher
 
-    # Диалог
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
-            GET_CUSTOMER_NAME: [MessageHandler(Filters.text & ~Filters.command, get_customer_name)],
-            GET_CONTRACT_AMOUNT: [MessageHandler(Filters.text & ~Filters.command, get_contract_amount)],
-            GET_PRODUCT_NAME: [MessageHandler(Filters.text & ~Filters.command, get_product_name)],
-            GET_BANK_DETAILS: [MessageHandler(Filters.text & ~Filters.command, get_bank_details)],
+            GET_CUSTOMER_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_customer_name)],
+            GET_CONTRACT_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_contract_amount)],
+            GET_PRODUCT_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_product_name)],
+            GET_BANK_DETAILS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_bank_details)],
         },
         fallbacks=[]
     )
