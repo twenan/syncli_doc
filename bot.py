@@ -45,6 +45,7 @@ def replace_placeholders(doc, placeholders):
 
     # Замена в параграфах
     for paragraph in doc.paragraphs:
+        # Объединяем все runs в параграфе в один текст
         full_text = ''.join(run.text for run in paragraph.runs)
         logging.info(f"Текст параграфа до замены: {full_text}")
 
@@ -59,7 +60,7 @@ def replace_placeholders(doc, placeholders):
                 for run in paragraph.runs:
                     run.text = ""
 
-                # Вставляем обновлённый текст
+                # Вставляем обновлённый текст в первый run
                 if paragraph.runs:
                     paragraph.runs[0].text = updated_text
 
@@ -84,7 +85,8 @@ def replace_placeholders(doc, placeholders):
         for row in table.rows:
             for cell in row.cells:
                 for paragraph in cell.paragraphs:
-                    full_text = paragraph.text
+                    # Объединяем все runs в ячейке таблицы в один текст
+                    full_text = ''.join(run.text for run in paragraph.runs)
                     logging.info(f"Текст ячейки таблицы до замены: {full_text}")
 
                     for key, value in placeholders.items():
@@ -98,7 +100,7 @@ def replace_placeholders(doc, placeholders):
                             for run in paragraph.runs:
                                 run.text = ""
 
-                            # Вставляем обновлённый текст
+                            # Вставляем обновлённый текст в первый run
                             if paragraph.runs:
                                 paragraph.runs[0].text = updated_text
 
