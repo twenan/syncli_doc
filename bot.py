@@ -41,8 +41,9 @@ TEMPLATE_PATH = "template.docx"
 
 # ✅ Функция для замены плейсхолдеров
 def replace_placeholders(doc, placeholders):
-    replaced = set()
+    replaced = set()  # Множество для отслеживания заменённых плейсхолдеров
 
+    # Замена в параграфах
     for paragraph in doc.paragraphs:
         full_text = ''.join(run.text for run in paragraph.runs)
         logging.info(f"Текст параграфа до замены: {full_text}")
@@ -51,12 +52,14 @@ def replace_placeholders(doc, placeholders):
             if key.lower() in full_text.lower() and key not in replaced:
                 logging.info(f"🔄 Заменяем плейсхолдер '{key}' в параграфе на '{value}'")
 
+                # Заменяем плейсхолдер на значение
                 updated_text = full_text.replace(key, value)
 
                 # Очищаем текущие runs
                 for run in paragraph.runs:
                     run.text = ""
 
+                # Вставляем обновлённый текст
                 if paragraph.runs:
                     paragraph.runs[0].text = updated_text
 
@@ -73,26 +76,34 @@ def replace_placeholders(doc, placeholders):
                 else:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
+                # Добавляем плейсхолдер в множество заменённых
                 replaced.add(key)
 
-    # ✅ Замена в таблицах
+    # Замена в таблицах
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
-                full_text = ''.join(paragraph.text for paragraph in cell.paragraphs)
-                logging.info(f"Текст ячейки таблицы до замены: {full_text}")
+                for paragraph in cell.paragraphs:
+                    full_text = paragraph.text
+                    logging.info(f"Текст ячейки таблицы до замены: {full_text}")
 
-                for key, value in placeholders.items():
-                    if key.lower() in full_text.lower() and key not in replaced:
-                        logging.info(f"🔄 Заменяем плейсхолдер '{key}' в таблице на '{value}'")
+                    for key, value in placeholders.items():
+                        if key.lower() in full_text.lower() and key not in replaced:
+                            logging.info(f"🔄 Заменяем плейсхолдер '{key}' в таблице на '{value}'")
 
-                        updated_text = full_text.replace(key, value)
+                            # Заменяем плейсхолдер на значение
+                            updated_text = full_text.replace(key, value)
 
-                        for paragraph in cell.paragraphs:
+                            # Очищаем текущие runs
                             for run in paragraph.runs:
-                                run.text = updated_text
+                                run.text = ""
 
-                        replaced.add(key)
+                            # Вставляем обновлённый текст
+                            if paragraph.runs:
+                                paragraph.runs[0].text = updated_text
+
+                            # Добавляем плейсхолдер в множество заменённых
+                            replaced.add(key)
 
 # ✅ Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
@@ -168,13 +179,13 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         contract_amount = 0
 
     placeholders = {
-        "{сегодняшняя дата 1}": today_date,
+        "{сегодняшняя дата 1}": today_date,  # Сегодняшняя дата
         "{заказчик 1}": f"Индивидуальный Предприниматель {data.get('customer_name', 'Пустое значение')}",
         "{название товара в родительном падеже}": data.get('product_name', 'Пустое значение'),
         "{сегодняшняя дата}": today_date,
         "{полтора месяца вперед от сегодняшней даты}": future_date,
-        "{стоимость работ цифрами}": str(contract_amount),
-        "{стоимость работ прописью}": num2words(contract_amount, lang='ru') + " рублей 00 копеек"
+        "{стоимость работ цифрами}": str(contract_amount),  # Сумма цифрами
+        "{стоимость работ прописью}": num2words(contract_amount, lang='ru') + " рублей 00 копеек"  # Сумма прописью
     }
 
     logging.info("Передаем значения для заполнения:")
