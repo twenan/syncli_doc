@@ -179,7 +179,7 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         contract_amount = 0
 
     placeholders = {
-        "{сегодняшняя дата 1}": today_date,  # Сегодняшняя дата
+        "{сегодняшняя дата 1}": today_date,
         "{заказчик 1}": f"Индивидуальный Предприниматель {data.get('customer_name', 'Пустое значение')}",
         "{название товара в родительном падеже}": data.get('product_name', 'Пустое значение'),
         "{сегодняшняя дата}": today_date,
@@ -188,10 +188,12 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         "{стоимость работ прописью}": num2words(contract_amount, lang='ru') + " рублей 00 копеек"  # Сумма прописью
     }
 
+    # Логируем значения placeholders для отладки
     logging.info("Передаем значения для заполнения:")
     for key, value in placeholders.items():
         logging.info(f"{key}: {value}")
 
+    # Загрузка шаблона и замена плейсхолдеров
     doc = Document(TEMPLATE_PATH)
     replace_placeholders(doc, placeholders)
 
