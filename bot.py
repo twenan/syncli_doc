@@ -42,7 +42,9 @@ TEMPLATE_PATH = "template.docx"
 # Функция для замены меток в документе
 def replace_placeholders(doc, placeholders):
     for paragraph in doc.paragraphs:
-        full_text = ''.join(run.text for run in paragraph.runs)  # Объединяем текст
+        full_text = ''.join(run.text for run in paragraph.runs)
+        logging.info(f"Проверяем текст параграфа: {full_text}")  # Лог всего текста параграфа
+        
         for key, value in placeholders.items():
             if key.lower() in full_text.lower():
                 logging.info(f"Найден плейсхолдер '{key}' в параграфе: {full_text}")
@@ -51,6 +53,7 @@ def replace_placeholders(doc, placeholders):
                     if key.lower() in run.text.lower():
                         original_text = run.text
                         updated_text = replace_with_case_preservation(original_text, key, value)
+                        logging.info(f"Заменяем '{original_text}' на '{updated_text}'")
                         run.text = updated_text
 
                 # Форматирование текста
@@ -64,35 +67,7 @@ def replace_placeholders(doc, placeholders):
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 else:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
-    # Замена текста в таблицах
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                full_text = ''.join(paragraph.text for paragraph in cell.paragraphs)
-                for key, value in placeholders.items():
-                    if key.lower() in full_text.lower():
-                        logging.info(f"Найден плейсхолдер '{key}' в ячейке таблицы: {full_text}")
-
-                        for paragraph in cell.paragraphs:
-                            for run in paragraph.runs:
-                                if key.lower() in run.text.lower():
-                                    original_text = run.text
-                                    updated_text = replace_with_case_preservation(original_text, key, value)
-                                    run.text = updated_text
-
-                                # Форматирование текста
-                                run.font.name = 'Times New Roman'
-                                run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
-                                run.font.size = Pt(13)
-
-                            # Выравнивание
-                            if key.lower() == "{сегодняшняя дата 1}":
-                                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                            else:
-                                paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
-
+                    
 # Функция для замены с сохранением регистра
 def replace_with_case_preservation(text, placeholder, replacement):
     def match_case(source, target):
