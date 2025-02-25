@@ -8,7 +8,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from fpdf import FPDF
 from num2words import num2words
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, filters, ConversationHandler, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, filters, ConversationHandler
 
 # Настройка логирования
 logging.basicConfig(level=logging.DEBUG)
@@ -99,11 +99,10 @@ def get_bank_details(update: Update, context: CallbackContext) -> int:
     return ConversationHandler.END
 
 # Основная функция
-def main():
-    token = "7724546136:AAFYu5vosG_-jMt4EDlpjTxmMx246PUWbMk"
-    updater = Updater(token, use_context=True)
-    dp = updater.dispatcher
+async def main():
+    application = Application.builder().token("YOUR_TELEGRAM_BOT_TOKEN").build()
 
+    # Диалог
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
@@ -115,9 +114,10 @@ def main():
         fallbacks=[]
     )
 
-    dp.add_handler(conv_handler)
-    updater.start_polling()
-    updater.idle()
+    application.add_handler(conv_handler)
+    await application.run_polling()
 
+# Запуск бота
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
