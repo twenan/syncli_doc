@@ -39,11 +39,11 @@ class ContractStates(StatesGroup):
 # Шаблон договора
 TEMPLATE_PATH = "template.docx"
 
-# ✅ Функция для замены плейсхолдеров
-# ✅ Исправленная функция для замены плейсхолдеров
+# Функция для замены плейсхолдеров
 def replace_placeholders(doc, placeholders):
-    replaced = set()
+    replaced = set()  # Множество для отслеживания заменённых плейсхолдеров
 
+    # Замена в параграфах
     for paragraph in doc.paragraphs:
         full_text = ''.join(run.text for run in paragraph.runs)
         logging.info(f"Текст параграфа до замены: {full_text}")
@@ -52,12 +52,16 @@ def replace_placeholders(doc, placeholders):
             if key.lower() in full_text.lower() and key not in replaced:
                 logging.info(f"🔄 Заменяем плейсхолдер '{key}' в параграфе на '{value}'")
 
+                # Заменяем плейсхолдер на значение
                 updated_text = full_text.replace(key, value)
 
-                # Полностью очищаем runs и вставляем новый текст в первый run
+                # Очищаем текущие runs
+                for run in paragraph.runs:
+                    run.text = ""
+
+                # Вставляем обновлённый текст
                 if paragraph.runs:
-                    paragraph.clear()  # Удаляем все существующие runs
-                    paragraph.add_run(updated_text)  # Добавляем заменённый текст в новый run
+                    paragraph.runs[0].text = updated_text
 
                 # Форматирование текста
                 for run in paragraph.runs:
@@ -65,15 +69,17 @@ def replace_placeholders(doc, placeholders):
                     run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
                     run.font.size = Pt(13)
 
-                # Выравнивание
+                # Выравнивание текста
                 if key.lower() == "{сегодняшняя дата 1}":
+                    logging.info("✅ Выравнивание по центру для даты")
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 else:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
+                # Добавляем плейсхолдер в множество заменённых
                 replaced.add(key)
 
-    # ✅ Обновляем плейсхолдеры в таблицах
+    # Замена в таблицах
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -85,16 +91,21 @@ def replace_placeholders(doc, placeholders):
                         if key.lower() in full_text.lower() and key not in replaced:
                             logging.info(f"🔄 Заменяем плейсхолдер '{key}' в таблице на '{value}'")
 
+                            # Заменяем плейсхолдер на значение
                             updated_text = full_text.replace(key, value)
 
-                            # Обновляем текст
-                            paragraph.clear()  # Удаляем текст ячейки
-                            paragraph.add_run(updated_text)
+                            # Очищаем текущие runs
+                            for run in paragraph.runs:
+                                run.text = ""
 
+                            # Вставляем обновлённый текст
+                            if paragraph.runs:
+                                paragraph.runs[0].text = updated_text
+
+                            # Добавляем плейсхолдер в множество заменённых
                             replaced.add(key)
 
-
-# ✅ Функция для создания PDF из DOCX
+# Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
     pdf = FPDF()
     pdf.add_page()
@@ -107,7 +118,7 @@ def create_pdf(docx_path, pdf_path):
 
     pdf.output(pdf_path)
 
-# ✅ Хендлер команды /start
+# Хендлер команды /start
 @dp.message(Command("start"))
 async def start(message: types.Message, state: FSMContext):
     welcome_text = (
@@ -125,13 +136,13 @@ async def start(message: types.Message, state: FSMContext):
 
     await message.answer(welcome_text, reply_markup=keyboard, parse_mode="Markdown")
 
-# ✅ Хендлер для кнопки "🚀 Начать заполнение договора"
+# Хендлер для кнопки "🚀 Начать заполнение договора"
 @dp.message(lambda message: message.text == "🚀 Начать заполнение договора")
 async def start_contract_filling(message: types.Message, state: FSMContext):
     await message.answer("Введите ФИО заказчика:")
     await state.set_state(ContractStates.GET_CUSTOMER_NAME)
 
-# ✅ Обработчики ввода данных
+# Обработчики ввода данных
 @dp.message(ContractStates.GET_CUSTOMER_NAME)
 async def get_customer_name(message: types.Message, state: FSMContext):
     await state.update_data(customer_name=message.text)
@@ -150,7 +161,7 @@ async def get_product_name(message: types.Message, state: FSMContext):
     await message.answer("Введите банковские реквизиты:")
     await state.set_state(ContractStates.GET_BANK_DETAILS)
 
-# ✅ Обработчик ввода банковских реквизитов
+# Обработчик ввода банковских реквизитов
 @dp.message(ContractStates.GET_BANK_DETAILS)
 async def get_bank_details(message: types.Message, state: FSMContext):
     await state.update_data(bank_details=message.text)
@@ -162,7 +173,7 @@ async def get_bank_details(message: types.Message, state: FSMContext):
     # Проверяем корректность ввода суммы
     try:
         contract_amount = int(data.get('contract_amount', '0').replace(" ", ""))
-        logging.info(f"💰 Сумма работ цифрами: {contract_amount}")
+        logging.info(f"💰 Сумма работ цифрами: {contract_amount} (тип: {type(contract_amount)})")
     except ValueError:
         logging.error(f"❌ Некорректное значение суммы работ: {data.get('contract_amount', '0')}")
         contract_amount = 0
@@ -174,7 +185,7 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         "{сегодняшняя дата}": today_date,
         "{полтора месяца вперед от сегодняшней даты}": future_date,
         "{стоимость работ цифрами}": str(contract_amount),  # Сумма цифрами
-        "{стоимость работ прописью}": num2words(contract_amount, lang='ru')  # Сумма прописью
+        "{стоимость работ прописью}": num2words(contract_amount, lang='ru') + " рублей 00 копеек"  # Сумма прописью
     }
 
     # Логируем значения placeholders для отладки
@@ -219,7 +230,7 @@ async def get_bank_details(message: types.Message, state: FSMContext):
 
     await state.clear()
 
-# ✅ Основная функция запуска бота
+# Основная функция запуска бота
 async def main():
     await dp.start_polling(bot)
 
