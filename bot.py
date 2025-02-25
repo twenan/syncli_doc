@@ -43,11 +43,12 @@ TEMPLATE_PATH = "template.docx"
 def replace_placeholders(doc, placeholders):
     for paragraph in doc.paragraphs:
         full_text = ''.join(run.text for run in paragraph.runs)
-        logging.info(f"Проверяем текст параграфа: {full_text}")  # Лог всего текста параграфа
-        
+        logging.info(f"Текст параграфа до замены: {full_text}")
+
         for key, value in placeholders.items():
+            logging.info(f"Проверяем плейсхолдер: '{key}'")
             if key.lower() in full_text.lower():
-                logging.info(f"Найден плейсхолдер '{key}' в параграфе: {full_text}")
+                logging.info(f"Плейсхолдер '{key}' найден в параграфе!")
 
                 for run in paragraph.runs:
                     if key.lower() in run.text.lower():
@@ -67,7 +68,8 @@ def replace_placeholders(doc, placeholders):
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 else:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                    
+
+
 # Функция для замены с сохранением регистра
 def replace_with_case_preservation(text, placeholder, replacement):
     def match_case(source, target):
