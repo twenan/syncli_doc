@@ -18,14 +18,9 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import Config, load_config
 
 # Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("bot_logs.log"),  # Запись логов в файл
-        logging.StreamHandler()  # Вывод логов в консоль
-    ]
-)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Загрузка конфигурации бота
 config: Config = load_config()
 BOT_TOKEN: str = config.tg_bot.token
@@ -45,10 +40,10 @@ class ContractStates(StatesGroup):
 TEMPLATE_PATH = "template.docx"
 
 # ✅ Функция для замены плейсхолдеров
+# ✅ Исправленная функция для замены плейсхолдеров
 def replace_placeholders(doc, placeholders):
-    replaced = set()  # Множество для отслеживания заменённых плейсхолдеров
+    replaced = set()
 
-    # Замена в параграфах
     for paragraph in doc.paragraphs:
         full_text = ''.join(run.text for run in paragraph.runs)
         logging.info(f"Текст параграфа до замены: {full_text}")
@@ -57,16 +52,12 @@ def replace_placeholders(doc, placeholders):
             if key.lower() in full_text.lower() and key not in replaced:
                 logging.info(f"🔄 Заменяем плейсхолдер '{key}' в параграфе на '{value}'")
 
-                # Заменяем плейсхолдер на значение
                 updated_text = full_text.replace(key, value)
 
-                # Очищаем текущие runs
-                for run in paragraph.runs:
-                    run.text = ""
-
-                # Вставляем обновлённый текст
+                # Полностью очищаем runs и вставляем новый текст в первый run
                 if paragraph.runs:
-                    paragraph.runs[0].text = updated_text
+                    paragraph.clear()  # Удаляем все существующие runs
+                    paragraph.add_run(updated_text)  # Добавляем заменённый текст в новый run
 
                 # Форматирование текста
                 for run in paragraph.runs:
@@ -74,17 +65,15 @@ def replace_placeholders(doc, placeholders):
                     run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
                     run.font.size = Pt(13)
 
-                # Выравнивание текста
+                # Выравнивание
                 if key.lower() == "{сегодняшняя дата 1}":
-                    logging.info("✅ Выравнивание по центру для даты")
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 else:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
-                # Добавляем плейсхолдер в множество заменённых
                 replaced.add(key)
 
-    # Замена в таблицах
+    # ✅ Обновляем плейсхолдеры в таблицах
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -96,19 +85,14 @@ def replace_placeholders(doc, placeholders):
                         if key.lower() in full_text.lower() and key not in replaced:
                             logging.info(f"🔄 Заменяем плейсхолдер '{key}' в таблице на '{value}'")
 
-                            # Заменяем плейсхолдер на значение
                             updated_text = full_text.replace(key, value)
 
-                            # Очищаем текущие runs
-                            for run in paragraph.runs:
-                                run.text = ""
+                            # Обновляем текст
+                            paragraph.clear()  # Удаляем текст ячейки
+                            paragraph.add_run(updated_text)
 
-                            # Вставляем обновлённый текст
-                            if paragraph.runs:
-                                paragraph.runs[0].text = updated_text
-
-                            # Добавляем плейсхолдер в множество заменённых
                             replaced.add(key)
+
 
 # ✅ Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
