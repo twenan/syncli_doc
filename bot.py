@@ -41,7 +41,7 @@ TEMPLATE_PATH = "template.docx"
 
 # Функция для замены меток в документе
 def replace_placeholders(doc, placeholders):
-    # Замена текста в обычных параграфах
+    # Замена текста в параграфах
     for paragraph in doc.paragraphs:
         for key, value in placeholders.items():
             if key in paragraph.text:
@@ -54,11 +54,11 @@ def replace_placeholders(doc, placeholders):
                 for run in paragraph.runs:
                     run.font.name = 'Times New Roman'
                     run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
-                    run.font.size = Pt(13)  # Размер шрифта
+                    run.font.size = Pt(13)
 
-                # Применяем выравнивание для каждого конкретного случая
+                # Выравнивание
                 if key == "{Сегодняшняя дата 1}":
-                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER  # Центр
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 elif key in [
                     "{Заказчик 1}",
                     "{Название товара в родительном падеже}",
@@ -67,7 +67,7 @@ def replace_placeholders(doc, placeholders):
                     "{Сумма работ цифрами}",
                     "{Сумма работ прописью}",
                 ]:
-                    paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY  # Выравнивание по ширине
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
     # Замена текста в таблицах
     for table in doc.tables:
@@ -75,14 +75,29 @@ def replace_placeholders(doc, placeholders):
             for cell in row.cells:
                 for key, value in placeholders.items():
                     if key in cell.text:
-                        cell.text = cell.text.replace(key, value)
+                        new_text = cell.text.replace(key, value)
+                        cell.text = new_text
 
-                        # Форматирование текста в таблицах
+                        # Устанавливаем шрифт и форматирование для текста в таблицах
                         for paragraph in cell.paragraphs:
                             for run in paragraph.runs:
                                 run.font.name = 'Times New Roman'
                                 run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
                                 run.font.size = Pt(13)
+
+                        # Применяем выравнивание для каждой ячейки
+                        for paragraph in cell.paragraphs:
+                            if key == "{Сегодняшняя дата 1}":
+                                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                            elif key in [
+                                "{Заказчик 1}",
+                                "{Название товара в родительном падеже}",
+                                "{Сегодняшняя дата}",
+                                "{Полтора месяца вперед от сегодняшней даты}",
+                                "{Сумма работ цифрами}",
+                                "{Сумма работ прописью}",
+                            ]:
+                                paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
 # Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
