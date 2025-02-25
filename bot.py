@@ -3,19 +3,37 @@ import os
 import datetime
 import logging
 from docx import Document
-from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Pt
 from fpdf import FPDF
 from num2words import num2words
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, filters, ConversationHandler
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from config import Config, load_config
 
 # Настройка логирования
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Константы для состояний
-GET_CUSTOMER_NAME, GET_CONTRACT_AMOUNT, GET_PRODUCT_NAME, GET_BANK_DETAILS = range(4)
+# Загрузка конфигурации бота
+config: Config = load_config()
+BOT_TOKEN: str = config.tg_bot.token
+
+# Создание бота и диспетчера
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(storage=MemoryStorage())
+
+# Определение состояний для FSM
+class ContractStates(StatesGroup):
+    GET_CUSTOMER_NAME = State()
+    GET_CONTRACT_AMOUNT = State()
+    GET_PRODUCT_NAME = State()
+    GET_BANK_DETAILS = State()
 
 # Шаблон договора
 TEMPLATE_PATH = "template.docx"
@@ -30,6 +48,7 @@ def replace_placeholders(doc, placeholders):
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 if key == "{Заказчик}":
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -48,39 +67,47 @@ def create_pdf(docx_path, pdf_path):
     pdf.output(pdf_path)
 
 # Обработчик команды /start
-def start(update: Update, context: CallbackContext) -> int:
-    update.message.reply_text("Введите ФИО заказчика:")
-    return GET_CUSTOMER_NAME
+@dp.message(Command("start"))
+async def start(message: types.Message, state: FSMContext):
+    await message.answer("Введите ФИО заказчика:")
+    await state.set_state(ContractStates.GET_CUSTOMER_NAME)
 
 # Обработчик ввода ФИО заказчика
-def get_customer_name(update: Update, context: CallbackContext) -> int:
-    context.user_data['customer_name'] = update.message.text
-    update.message.reply_text("Введите сумму договора (цифрами):")
-    return GET_CONTRACT_AMOUNT
+@dp.message(ContractStates.GET_CUSTOMER_NAME)
+async def get_customer_name(message: types.Message, state: FSMContext):
+    await state.update_data(customer_name=message.text)
+    await message.answer("Введите сумму договора (цифрами):")
+    await state.set_state(ContractStates.GET_CONTRACT_AMOUNT)
 
 # Обработчик ввода суммы договора
-def get_contract_amount(update: Update, context: CallbackContext) -> int:
-    context.user_data['contract_amount'] = update.message.text
-    update.message.reply_text("Введите название товара в родительном падеже:")
-    return GET_PRODUCT_NAME
+@dp.message(ContractStates.GET_CONTRACT_AMOUNT)
+async def get_contract_amount(message: types.Message, state: FSMContext):
+    await state.update_data(contract_amount=message.text)
+    await message.answer("Введите название товара в родительном падеже:")
+    await state.set_state(ContractStates.GET_PRODUCT_NAME)
 
 # Обработчик ввода названия товара
-def get_product_name(update: Update, context: CallbackContext) -> int:
-    context.user_data['product_name'] = update.message.text
-    update.message.reply_text("Введите банковские реквизиты (ИНН, ОГРНИП, расчетный счет, банк, БИК, корр. счет, телефон):")
-    return GET_BANK_DETAILS
+@dp.message(ContractStates.GET_PRODUCT_NAME)
+async def get_product_name(message: types.Message, state: FSMContext):
+    await state.update_data(product_name=message.text)
+    await message.answer("Введите банковские реквизиты (ИНН, ОГРНИП, расчетный счет, банк, БИК, корр. счет, телефон):")
+    await state.set_state(ContractStates.GET_BANK_DETAILS)
 
 # Обработчик ввода банковских реквизитов
-def get_bank_details(update: Update, context: CallbackContext) -> int:
-    context.user_data['bank_details'] = update.message.text
+@dp.message(ContractStates.GET_BANK_DETAILS)
+async def get_bank_details(message: types.Message, state: FSMContext):
+    await state.update_data(bank_details=message.text)
+    data = await state.get_data()
+
+    # Заполнение шаблона
     doc = Document(TEMPLATE_PATH)
     placeholders = {
-        "{Заказчик}": f"Индивидуальный Предприниматель {context.user_data['customer_name']}",
+        "{Заказчик}": f"Индивидуальный Предприниматель {data['customer_name']}",
         "{Сегодняшняя дата}": datetime.datetime.now().strftime("%d.%m.%Y"),
-        "{Название товара в родительном падеже}": context.user_data['product_name'],
-        "{Стоимость работ цифрами}": context.user_data['contract_amount'],
-        "{Стоимость работ прописью}": num2words(int(context.user_data['contract_amount']), lang='ru') + " рублей 00 копеек",
-        "{Банковские реквизиты}": context.user_data['bank_details']
+        "{Название товара в родительном падеже}": data['product_name'],
+        "{Стоимость работ цифрами}": data['contract_amount'],
+        "{Стоимость работ прописью}": num2words(int(data['contract_amount']), lang='ru') + " рублей 00 копеек",
+        "{Банковские реквизиты}": data['bank_details']
     }
     replace_placeholders(doc, placeholders)
 
@@ -93,31 +120,14 @@ def get_bank_details(update: Update, context: CallbackContext) -> int:
     create_pdf(docx_output_path, pdf_output_path)
 
     # Отправка файлов пользователю
-    context.bot.send_document(chat_id=update.effective_chat.id, document=open(docx_output_path, 'rb'))
-    context.bot.send_document(chat_id=update.effective_chat.id, document=open(pdf_output_path, 'rb'))
+    await message.answer_document(types.FSInputFile(docx_output_path))
+    await message.answer_document(types.FSInputFile(pdf_output_path))
 
-    return ConversationHandler.END
+    await state.clear()
 
-# Основная функция
+# Основная функция запуска бота
 async def main():
-    application = Application.builder().token("YOUR_TELEGRAM_BOT_TOKEN").build()
+    await dp.start_polling(bot)
 
-    # Диалог
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
-        states={
-            GET_CUSTOMER_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_customer_name)],
-            GET_CONTRACT_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_contract_amount)],
-            GET_PRODUCT_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_product_name)],
-            GET_BANK_DETAILS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_bank_details)],
-        },
-        fallbacks=[]
-    )
-
-    application.add_handler(conv_handler)
-    await application.run_polling()
-
-# Запуск бота
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())
