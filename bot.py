@@ -4,7 +4,10 @@ import datetime
 import logging
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Pt  # Добавляем импорт для размера шрифта
+from docx.oxml.ns import qn  # Для поддержки русских символов
 from fpdf import FPDF
+from datetime import datetime, timedelta
 from num2words import num2words
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
@@ -42,11 +45,23 @@ def replace_placeholders(doc, placeholders):
         for key, value in placeholders.items():
             if key in paragraph.text:
                 paragraph.text = paragraph.text.replace(key, value)
-                if key == "{Сегодняшняя дата}":
-                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                if key == "{Заказчик}":
-                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
+                # Устанавливаем шрифт Times New Roman
+                for run in paragraph.runs:
+                    run.font.name = 'Times New Roman'
+                    run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
+                    run.font.size = Pt(13)  # Размер шрифта
+
+                # Применяем выравнивание для каждого конкретного случая
+                if key == "{сегодняшняя дата 1}":
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER  # Центр
+                
+                if key in ["{заказчик 1}", "{название товара в родительном падеже}",
+                           "{сегодняшняя дата}", "{полтора месяца вперед от сегодняшней даты}",
+                           "{сумма цифрами}", "{сумма прописью}"]:
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY  # Выравнивание по ширине
+
+    # Замена текста в таблицах
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -117,28 +132,29 @@ async def get_product_name(message: types.Message, state: FSMContext):
     await message.answer("Введите банковские реквизиты (ИНН, ОГРНИП, расчетный счет, банк, БИК, корр. счет, телефон):")
     await state.set_state(ContractStates.GET_BANK_DETAILS)
 
-# Обработчик ввода банковских реквизитов
+# Обработчик ввода банковских реквизитов и создание договора
 @dp.message(ContractStates.GET_BANK_DETAILS)
 async def get_bank_details(message: types.Message, state: FSMContext):
     await state.update_data(bank_details=message.text)
     data = await state.get_data()
 
+    # Текущая дата
+    today_date = datetime.now().strftime("%d.%m.%Y")
+    # Дата через 45 дней
+    future_date = (datetime.now() + timedelta(days=45)).strftime("%d.%m.%Y")
+
     # Заполнение шаблона
-    try:
-        doc = Document(TEMPLATE_PATH)
-        placeholders = {
-            "{Заказчик}": f"Индивидуальный Предприниматель {data['customer_name']}",
-            "{Сегодняшняя дата}": datetime.datetime.now().strftime("%d.%m.%Y"),
-            "{Название товара в родительном падеже}": data['product_name'],
-            "{Стоимость работ цифрами}": data['contract_amount'],
-            "{Стоимость работ прописью}": num2words(int(data['contract_amount']), lang='ru') + " рублей 00 копеек",
-            "{Банковские реквизиты}": data['bank_details']
-        }
-        replace_placeholders(doc, placeholders)
-    except Exception as e:
-        logging.error(f"Ошибка при заполнении шаблона: {str(e)}")
-        await message.answer(f"Ошибка при заполнении шаблона: {str(e)}")
-        return
+    doc = Document(TEMPLATE_PATH)
+    placeholders = {
+        "{сегодняшняя дата 1}": today_date,
+        "{заказчик 1}": f"Индивидуальный Предприниматель {data['customer_name']}",
+        "{название товара в родительном падеже}": data['product_name'],
+        "{сегодняшняя дата}": today_date,
+        "{полтора месяца вперед от сегодняшней даты}": future_date,
+        "{сумма цифрами}": data['contract_amount'],
+        "{сумма прописью}": num2words(int(data['contract_amount']), lang='ru') + " рублей 00 копеек"
+    }
+    replace_placeholders(doc, placeholders)
 
     # Сохранение DOCX
     try:
