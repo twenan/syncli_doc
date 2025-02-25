@@ -75,13 +75,16 @@ async def start(message: types.Message, state: FSMContext):
         "Соберём все данные для заполнения договора шаг за шагом. Готовы начать?"
     )
 
-    # Клавиатура с кнопкой "Начать заполнение"
+    # Клавиатура с кнопкой
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.add(types.KeyboardButton("🚀 Начать заполнение договора"))
 
     await message.answer(welcome_text, reply_markup=keyboard, parse_mode="Markdown")
 
-    # Сразу предлагаем ввести данные после приветствия
+
+# хендлер для кнопки "🚀 Начать заполнение договора"
+@dp.message(lambda message: message.text == "🚀 Начать заполнение договора")
+async def start_contract_filling(message: types.Message, state: FSMContext):
     await message.answer("Введите ФИО заказчика:")
     await state.set_state(ContractStates.GET_CUSTOMER_NAME)
 
