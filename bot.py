@@ -46,16 +46,19 @@ def replace_placeholders(doc, placeholders):
         logging.info(f"Текст параграфа до замены: {full_text}")
 
         for key, value in placeholders.items():
-            logging.info(f"Проверяем плейсхолдер: '{key}'")
             if key.lower() in full_text.lower():
-                logging.info(f"Плейсхолдер '{key}' найден в параграфе!")
+                logging.info(f"Найден плейсхолдер '{key}' в параграфе!")
 
+                # Объединяем весь текст и заменяем плейсхолдер
+                updated_text = full_text.lower().replace(key.lower(), value)
+
+                # Очищаем существующие runs
                 for run in paragraph.runs:
-                    if key.lower() in run.text.lower():
-                        original_text = run.text
-                        updated_text = replace_with_case_preservation(original_text, key, value)
-                        logging.info(f"Заменяем '{original_text}' на '{updated_text}'")
-                        run.text = updated_text
+                    run.text = ""
+
+                # Добавляем новый текст в первый run
+                if paragraph.runs:
+                    paragraph.runs[0].text = updated_text
 
                 # Форматирование текста
                 for run in paragraph.runs:
@@ -68,6 +71,23 @@ def replace_placeholders(doc, placeholders):
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 else:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+    # Обработка текста внутри таблиц
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                full_text = ''.join(paragraph.text for paragraph in cell.paragraphs)
+                logging.info(f"Текст ячейки таблицы до замены: {full_text}")
+
+                for key, value in placeholders.items():
+                    if key.lower() in full_text.lower():
+                        logging.info(f"Найден плейсхолдер '{key}' в таблице!")
+
+                        updated_text = full_text.lower().replace(key.lower(), value)
+
+                        for paragraph in cell.paragraphs:
+                            paragraph.clear()  # Очистим текущий текст
+                            paragraph.add_run(updated_text)  # Добавим заменённый текст
 
 
 # Функция для замены с сохранением регистра
