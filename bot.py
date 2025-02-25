@@ -49,14 +49,14 @@ def replace_placeholders(doc, placeholders):
             if key.lower() in full_text.lower():
                 logging.info(f"Найден плейсхолдер '{key}' в параграфе!")
 
-                # Объединяем весь текст и заменяем плейсхолдер
-                updated_text = full_text.lower().replace(key.lower(), value)
+                # Замена плейсхолдера с сохранением регистра
+                updated_text = replace_with_case_preservation(full_text, key, value)
 
-                # Очищаем существующие runs
+                # Очищаем текущие runs
                 for run in paragraph.runs:
                     run.text = ""
 
-                # Добавляем новый текст в первый run
+                # Вставляем новый текст в первый run
                 if paragraph.runs:
                     paragraph.runs[0].text = updated_text
 
@@ -83,12 +83,11 @@ def replace_placeholders(doc, placeholders):
                     if key.lower() in full_text.lower():
                         logging.info(f"Найден плейсхолдер '{key}' в таблице!")
 
-                        updated_text = full_text.lower().replace(key.lower(), value)
+                        updated_text = replace_with_case_preservation(full_text, key, value)
 
                         for paragraph in cell.paragraphs:
-                            paragraph.clear()  # Очистим текущий текст
-                            paragraph.add_run(updated_text)  # Добавим заменённый текст
-
+                            for run in paragraph.runs:
+                                run.text = updated_text
 
 # Функция для замены с сохранением регистра
 def replace_with_case_preservation(text, placeholder, replacement):
@@ -102,16 +101,17 @@ def replace_with_case_preservation(text, placeholder, replacement):
         else:
             return target
 
-    # Поиск и замена с сохранением регистра
-    start = text.lower().find(placeholder.lower())
-    if start == -1:
-        return text
-
-    end = start + len(placeholder)
-    original_placeholder = text[start:end]
-    replacement_with_case = match_case(original_placeholder, replacement)
-
-    return text[:start] + replacement_with_case + text[end:]
+    result = ""
+    i = 0
+    while i < len(text):
+        if text[i:i + len(placeholder)].lower() == placeholder.lower():
+            matched_placeholder = text[i:i + len(placeholder)]
+            result += match_case(matched_placeholder, replacement)
+            i += len(placeholder)
+        else:
+            result += text[i]
+            i += 1
+    return result
 
 # Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
