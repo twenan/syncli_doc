@@ -44,11 +44,13 @@ def replace_placeholders(doc, placeholders):
     # Замена текста в параграфах
     for paragraph in doc.paragraphs:
         for key, value in placeholders.items():
-            if key in paragraph.text:
+            paragraph_text = ''.join(run.text for run in paragraph.runs)  # Объединяем текст, даже если он разделён
+            if key.lower() in paragraph_text.lower():
+                logging.info(f"Найден плейсхолдер '{key}' в параграфе: {paragraph_text}")
                 inline = paragraph.runs
                 for i in range(len(inline)):
-                    if key in inline[i].text:
-                        inline[i].text = inline[i].text.replace(key, value)
+                    if key.lower() in inline[i].text.lower():
+                        inline[i].text = inline[i].text.lower().replace(key.lower(), value)
 
                 # Устанавливаем шрифт Times New Roman
                 for run in paragraph.runs:
@@ -57,15 +59,15 @@ def replace_placeholders(doc, placeholders):
                     run.font.size = Pt(13)
 
                 # Выравнивание
-                if key == "{Сегодняшняя дата 1}":
+                if key.lower() == "{сегодняшняя дата 1}":
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                elif key in [
-                    "{Заказчик 1}",
-                    "{Название товара в родительном падеже}",
-                    "{Сегодняшняя дата}",
-                    "{Полтора месяца вперед от сегодняшней даты}",
-                    "{Сумма работ цифрами}",
-                    "{Сумма работ прописью}",
+                elif key.lower() in [
+                    "{заказчик 1}",
+                    "{название товара в родительном падеже}",
+                    "{сегодняшняя дата}",
+                    "{полтора месяца вперед от сегодняшней даты}",
+                    "{стоимость работ цифрами}",
+                    "{стоимость работ прописью}",
                 ]:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
@@ -73,9 +75,11 @@ def replace_placeholders(doc, placeholders):
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
+                cell_text = cell.text
                 for key, value in placeholders.items():
-                    if key in cell.text:
-                        new_text = cell.text.replace(key, value)
+                    if key.lower() in cell_text.lower():
+                        logging.info(f"Найден плейсхолдер '{key}' в ячейке таблицы: {cell_text}")
+                        new_text = cell_text.lower().replace(key.lower(), value)
                         cell.text = new_text
 
                         # Устанавливаем шрифт и форматирование для текста в таблицах
@@ -87,15 +91,15 @@ def replace_placeholders(doc, placeholders):
 
                         # Применяем выравнивание для каждой ячейки
                         for paragraph in cell.paragraphs:
-                            if key == "{Сегодняшняя дата 1}":
+                            if key.lower() == "{сегодняшняя дата 1}":
                                 paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                            elif key in [
-                                "{Заказчик 1}",
-                                "{Название товара в родительном падеже}",
-                                "{Сегодняшняя дата}",
-                                "{Полтора месяца вперед от сегодняшней даты}",
-                                "{Сумма работ цифрами}",
-                                "{Сумма работ прописью}",
+                            elif key.lower() in [
+                                "{заказчик 1}",
+                                "{название товара в родительном падеже}",
+                                "{сегодняшняя дата}",
+                                "{полтора месяца вперед от сегодняшней даты}",
+                                "{стоимость работ цифрами}",
+                                "{стоимость работ прописью}",
                             ]:
                                 paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
@@ -176,14 +180,15 @@ async def get_bank_details(message: types.Message, state: FSMContext):
     # Заполнение шаблона
     doc = Document(TEMPLATE_PATH)
     placeholders = {
-        "{Сегодняшняя дата 1}": today_date,
-        "{Заказчик 1}": f"Индивидуальный Предприниматель {data['customer_name']}",
-        "{Название товара в родительном падеже}": data['product_name'],
-        "{Сегодняшняя дата}": today_date,
-        "{Полтора месяца вперед от сегодняшней даты}": future_date,
-        "{Сумма работ цифрами}": data['contract_amount'],
-        "{Сумма работ прописью}": num2words(int(data['contract_amount']), lang='ru') + " рублей 00 копеек"
-    }
+    "{сегодняшняя дата 1}": today_date,
+    "{заказчик 1}": f"Индивидуальный Предприниматель {data.get('customer_name', 'Пустое значение')}",
+    "{название товара в родительном падеже}": data.get('product_name', 'Пустое значение'),
+    "{сегодняшняя дата}": today_date,
+    "{полтора месяца вперед от сегодняшней даты}": future_date,
+    "{стоимость работ цифрами}": data.get('contract_amount', '0'),
+    "{стоимость работ прописью}": num2words(int(data.get('contract_amount', '0')), lang='ru') + " рублей 00 копеек"
+}
+
 
     replace_placeholders(doc, placeholders)
 
