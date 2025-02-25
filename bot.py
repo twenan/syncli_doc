@@ -39,24 +39,24 @@ class ContractStates(StatesGroup):
 # Шаблон договора
 TEMPLATE_PATH = "template.docx"
 
-# Функция для замены меток в документе
+# ✅ Функция для замены меток в документе
 def replace_placeholders(doc, placeholders):
+    replaced = set()  # Для отслеживания замен
+
     for paragraph in doc.paragraphs:
         full_text = ''.join(run.text for run in paragraph.runs)
         logging.info(f"Текст параграфа до замены: {full_text}")
 
         for key, value in placeholders.items():
-            if key.lower() in full_text.lower():
-                logging.info(f"Найден плейсхолдер '{key}' в параграфе!")
+            if key.lower() in full_text.lower() and key not in replaced:
+                logging.info(f"Заменяем плейсхолдер '{key}' в параграфе")
 
-                # Замена плейсхолдера с сохранением регистра
-                updated_text = replace_with_case_preservation(full_text, key, value)
+                updated_text = full_text.replace(key, value)
 
                 # Очищаем текущие runs
                 for run in paragraph.runs:
                     run.text = ""
 
-                # Вставляем новый текст в первый run
                 if paragraph.runs:
                     paragraph.runs[0].text = updated_text
 
@@ -66,13 +66,15 @@ def replace_placeholders(doc, placeholders):
                     run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
                     run.font.size = Pt(13)
 
-                # Выравнивание
+                # Выравнивание текста
                 if key.lower() == "{сегодняшняя дата 1}":
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 else:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
-    # Обработка текста внутри таблиц
+                replaced.add(key)
+
+    # Замена в таблицах
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -80,40 +82,18 @@ def replace_placeholders(doc, placeholders):
                 logging.info(f"Текст ячейки таблицы до замены: {full_text}")
 
                 for key, value in placeholders.items():
-                    if key.lower() in full_text.lower():
-                        logging.info(f"Найден плейсхолдер '{key}' в таблице!")
+                    if key.lower() in full_text.lower() and key not in replaced:
+                        logging.info(f"Заменяем плейсхолдер '{key}' в таблице")
 
-                        updated_text = replace_with_case_preservation(full_text, key, value)
+                        updated_text = full_text.replace(key, value)
 
                         for paragraph in cell.paragraphs:
                             for run in paragraph.runs:
                                 run.text = updated_text
 
-# Функция для замены с сохранением регистра
-def replace_with_case_preservation(text, placeholder, replacement):
-    def match_case(source, target):
-        if source.isupper():
-            return target.upper()
-        elif source.islower():
-            return target.lower()
-        elif source.istitle():
-            return target.title()
-        else:
-            return target
+                        replaced.add(key)
 
-    result = ""
-    i = 0
-    while i < len(text):
-        if text[i:i + len(placeholder)].lower() == placeholder.lower():
-            matched_placeholder = text[i:i + len(placeholder)]
-            result += match_case(matched_placeholder, replacement)
-            i += len(placeholder)
-        else:
-            result += text[i]
-            i += 1
-    return result
-
-# Функция для создания PDF из DOCX
+# ✅ Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
     pdf = FPDF()
     pdf.add_page()
@@ -126,7 +106,7 @@ def create_pdf(docx_path, pdf_path):
 
     pdf.output(pdf_path)
 
-# Хендлер команды /start
+# ✅ Хендлер команды /start
 @dp.message(Command("start"))
 async def start(message: types.Message, state: FSMContext):
     welcome_text = (
@@ -144,13 +124,13 @@ async def start(message: types.Message, state: FSMContext):
 
     await message.answer(welcome_text, reply_markup=keyboard, parse_mode="Markdown")
 
-# Хендлер для кнопки "🚀 Начать заполнение договора"
+# ✅ Хендлер для кнопки "🚀 Начать заполнение договора"
 @dp.message(lambda message: message.text == "🚀 Начать заполнение договора")
 async def start_contract_filling(message: types.Message, state: FSMContext):
     await message.answer("Введите ФИО заказчика:")
     await state.set_state(ContractStates.GET_CUSTOMER_NAME)
 
-# Обработчики ввода данных
+# ✅ Обработчики ввода данных
 @dp.message(ContractStates.GET_CUSTOMER_NAME)
 async def get_customer_name(message: types.Message, state: FSMContext):
     await state.update_data(customer_name=message.text)
@@ -159,7 +139,7 @@ async def get_customer_name(message: types.Message, state: FSMContext):
 
 @dp.message(ContractStates.GET_CONTRACT_AMOUNT)
 async def get_contract_amount(message: types.Message, state: FSMContext):
-    await state.update_data(contract_amount=message.text)
+    await state.update_data(contract_amount=message.text.strip())
     await message.answer("Введите название товара в родительном падеже:")
     await state.set_state(ContractStates.GET_PRODUCT_NAME)
 
@@ -169,15 +149,20 @@ async def get_product_name(message: types.Message, state: FSMContext):
     await message.answer("Введите банковские реквизиты:")
     await state.set_state(ContractStates.GET_BANK_DETAILS)
 
-# Обработчик ввода банковских реквизитов
+# ✅ Обработчик ввода банковских реквизитов
 @dp.message(ContractStates.GET_BANK_DETAILS)
 async def get_bank_details(message: types.Message, state: FSMContext):
     await state.update_data(bank_details=message.text)
     data = await state.get_data()
 
-    # Подготовка данных для заполнения
     today_date = datetime.now().strftime("%d.%m.%Y")
     future_date = (datetime.now() + timedelta(days=45)).strftime("%d.%m.%Y")
+
+    # Проверяем корректность ввода суммы
+    try:
+        contract_amount = int(data.get('contract_amount', '0').replace(" ", ""))
+    except ValueError:
+        contract_amount = 0
 
     placeholders = {
         "{сегодняшняя дата 1}": today_date,
@@ -185,11 +170,13 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         "{название товара в родительном падеже}": data.get('product_name', 'Пустое значение'),
         "{сегодняшняя дата}": today_date,
         "{полтора месяца вперед от сегодняшней даты}": future_date,
-        "{стоимость работ цифрами}": str(data.get('contract_amount', '0')),
-        "{стоимость работ прописью}": num2words(int(data.get('contract_amount', '0')), lang='ru') + " рублей 00 копеек"
+        "{стоимость работ цифрами}": str(contract_amount),
+        "{стоимость работ прописью}": num2words(contract_amount, lang='ru') + " рублей 00 копеек"
     }
 
-    logging.info(f"Передаем значения для заполнения: {placeholders}")
+    logging.info("Передаем значения для заполнения:")
+    for key, value in placeholders.items():
+        logging.info(f"{key}: {value}")
 
     doc = Document(TEMPLATE_PATH)
     replace_placeholders(doc, placeholders)
@@ -227,7 +214,7 @@ async def get_bank_details(message: types.Message, state: FSMContext):
 
     await state.clear()
 
-# Основная функция запуска бота
+# ✅ Основная функция запуска бота
 async def main():
     await dp.start_polling(bot)
 
