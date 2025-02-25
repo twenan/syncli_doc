@@ -43,16 +43,18 @@ TEMPLATE_PATH = "template.docx"
 def replace_placeholders(doc, placeholders):
     # Замена текста в параграфах
     for paragraph in doc.paragraphs:
+        full_text = ''.join(run.text for run in paragraph.runs).lower()  # Объединяем весь текст из runs
         for key, value in placeholders.items():
-            paragraph_text = ''.join(run.text for run in paragraph.runs)  # Объединяем текст, даже если он разделён
-            if key.lower() in paragraph_text.lower():
-                logging.info(f"Найден плейсхолдер '{key}' в параграфе: {paragraph_text}")
-                inline = paragraph.runs
-                for i in range(len(inline)):
-                    if key.lower() in inline[i].text.lower():
-                        inline[i].text = inline[i].text.lower().replace(key.lower(), value)
+            if key.lower() in full_text:
+                logging.info(f"Найден плейсхолдер '{key}' в параграфе: {full_text}")
 
-                # Устанавливаем шрифт Times New Roman
+                # Объединяем текст в один блок, заменяем и перезаписываем
+                new_text = full_text.replace(key.lower(), value)
+                for i in range(len(paragraph.runs)):
+                    paragraph.runs[i].text = ""  # Очищаем старый текст
+                paragraph.runs[0].text = new_text  # Записываем текст в первый run
+
+                # Форматирование текста
                 for run in paragraph.runs:
                     run.font.name = 'Times New Roman'
                     run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
@@ -61,46 +63,34 @@ def replace_placeholders(doc, placeholders):
                 # Выравнивание
                 if key.lower() == "{сегодняшняя дата 1}":
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                elif key.lower() in [
-                    "{заказчик 1}",
-                    "{название товара в родительном падеже}",
-                    "{сегодняшняя дата}",
-                    "{полтора месяца вперед от сегодняшней даты}",
-                    "{стоимость работ цифрами}",
-                    "{стоимость работ прописью}",
-                ]:
+                else:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
     # Замена текста в таблицах
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
-                cell_text = cell.text
+                full_text = ''.join(paragraph.text for paragraph in cell.paragraphs).lower()
                 for key, value in placeholders.items():
-                    if key.lower() in cell_text.lower():
-                        logging.info(f"Найден плейсхолдер '{key}' в ячейке таблицы: {cell_text}")
-                        new_text = cell_text.lower().replace(key.lower(), value)
-                        cell.text = new_text
+                    if key.lower() in full_text:
+                        logging.info(f"Найден плейсхолдер '{key}' в ячейке таблицы: {full_text}")
 
-                        # Устанавливаем шрифт и форматирование для текста в таблицах
+                        new_text = full_text.replace(key.lower(), value)
                         for paragraph in cell.paragraphs:
+                            for i in range(len(paragraph.runs)):
+                                paragraph.runs[i].text = ""  # Очищаем текст
+                            paragraph.runs[0].text = new_text  # Вставляем текст
+
+                            # Форматирование текста в таблицах
                             for run in paragraph.runs:
                                 run.font.name = 'Times New Roman'
                                 run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
                                 run.font.size = Pt(13)
 
-                        # Применяем выравнивание для каждой ячейки
-                        for paragraph in cell.paragraphs:
+                            # Выравнивание
                             if key.lower() == "{сегодняшняя дата 1}":
                                 paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                            elif key.lower() in [
-                                "{заказчик 1}",
-                                "{название товара в родительном падеже}",
-                                "{сегодняшняя дата}",
-                                "{полтора месяца вперед от сегодняшней даты}",
-                                "{стоимость работ цифрами}",
-                                "{стоимость работ прописью}",
-                            ]:
+                            else:
                                 paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
 # Функция для создания PDF из DOCX
