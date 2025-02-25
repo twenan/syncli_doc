@@ -18,9 +18,14 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import Config, load_config
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("bot_logs.log"),  # Запись логов в файл
+        logging.StreamHandler()  # Вывод логов в консоль
+    ]
+)
 # Загрузка конфигурации бота
 config: Config = load_config()
 BOT_TOKEN: str = config.tg_bot.token
@@ -185,7 +190,7 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         "{сегодняшняя дата}": today_date,
         "{полтора месяца вперед от сегодняшней даты}": future_date,
         "{стоимость работ цифрами}": str(contract_amount),  # Сумма цифрами
-        "{стоимость работ прописью}": num2words(contract_amount, lang='ru') + " рублей 00 копеек"  # Сумма прописью
+        "{стоимость работ прописью}": num2words(contract_amount, lang='ru')  # Сумма прописью
     }
 
     # Логируем значения placeholders для отладки
