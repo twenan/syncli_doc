@@ -4,8 +4,8 @@ import datetime
 import logging
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Pt  # Для установки размера шрифта
-from docx.oxml.ns import qn  # Для поддержки русских символов
+from docx.shared import Pt
+from docx.oxml.ns import qn
 from fpdf import FPDF
 from datetime import datetime, timedelta
 from num2words import num2words
@@ -39,9 +39,9 @@ class ContractStates(StatesGroup):
 # Шаблон договора
 TEMPLATE_PATH = "template.docx"
 
-# ✅ Функция для замены меток в документе
+# ✅ Функция для замены плейсхолдеров
 def replace_placeholders(doc, placeholders):
-    replaced = set()  # Для отслеживания замен
+    replaced = set()
 
     for paragraph in doc.paragraphs:
         full_text = ''.join(run.text for run in paragraph.runs)
@@ -49,7 +49,7 @@ def replace_placeholders(doc, placeholders):
 
         for key, value in placeholders.items():
             if key.lower() in full_text.lower() and key not in replaced:
-                logging.info(f"Заменяем плейсхолдер '{key}' в параграфе")
+                logging.info(f"🔄 Заменяем плейсхолдер '{key}' в параграфе на '{value}'")
 
                 updated_text = full_text.replace(key, value)
 
@@ -68,13 +68,14 @@ def replace_placeholders(doc, placeholders):
 
                 # Выравнивание текста
                 if key.lower() == "{сегодняшняя дата 1}":
+                    logging.info("✅ Выравнивание по центру для даты")
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 else:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
                 replaced.add(key)
 
-    # Замена в таблицах
+    # ✅ Замена в таблицах
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -83,7 +84,7 @@ def replace_placeholders(doc, placeholders):
 
                 for key, value in placeholders.items():
                     if key.lower() in full_text.lower() and key not in replaced:
-                        logging.info(f"Заменяем плейсхолдер '{key}' в таблице")
+                        logging.info(f"🔄 Заменяем плейсхолдер '{key}' в таблице на '{value}'")
 
                         updated_text = full_text.replace(key, value)
 
@@ -161,7 +162,9 @@ async def get_bank_details(message: types.Message, state: FSMContext):
     # Проверяем корректность ввода суммы
     try:
         contract_amount = int(data.get('contract_amount', '0').replace(" ", ""))
+        logging.info(f"💰 Сумма работ цифрами: {contract_amount}")
     except ValueError:
+        logging.error(f"❌ Некорректное значение суммы работ: {data.get('contract_amount', '0')}")
         contract_amount = 0
 
     placeholders = {
