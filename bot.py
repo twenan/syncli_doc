@@ -119,9 +119,17 @@ async def get_bank_details(message: types.Message, state: FSMContext):
     pdf_output_path = "output.pdf"
     create_pdf(docx_output_path, pdf_output_path)
 
-    # Отправка файлов пользователю
-    await message.answer_document(types.FSInputFile(docx_output_path))
-    await message.answer_document(types.FSInputFile(pdf_output_path))
+    # Проверим, созданы ли файлы
+    if os.path.exists(docx_output_path) and os.path.exists(pdf_output_path):
+        # Отправка документов пользователю
+        try:
+            await message.answer("Готовый договор отправлен:")
+            await message.answer_document(types.FSInputFile(docx_output_path))
+            await message.answer_document(types.FSInputFile(pdf_output_path))
+        except Exception as e:
+            await message.answer(f"Ошибка при отправке файла: {str(e)}")
+    else:
+        await message.answer("Ошибка: не удалось создать файлы договора.")
 
     await state.clear()
 
