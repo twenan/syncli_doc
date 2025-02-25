@@ -59,10 +59,14 @@ def replace_placeholders(doc, placeholders):
                 # Применяем выравнивание для каждого конкретного случая
                 if key == "{Сегодняшняя дата 1}":
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER  # Центр
-                
-                if key in ["{Заказчик 1}", "{Название товара в родительном падеже}",
-                           "{Сегодняшняя дата}", "{Полтора месяца вперед от сегодняшней даты}",
-                           "{Сумма работ цифрами}", "{Сумма работ прописью}"]:
+                elif key in [
+                    "{Заказчик 1}",
+                    "{Название товара в родительном падеже}",
+                    "{Сегодняшняя дата}",
+                    "{Полтора месяца вперед от сегодняшней даты}",
+                    "{Сумма работ цифрами}",
+                    "{Сумма работ прописью}",
+                ]:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY  # Выравнивание по ширине
 
     # Замена текста в таблицах
@@ -71,7 +75,14 @@ def replace_placeholders(doc, placeholders):
             for cell in row.cells:
                 for key, value in placeholders.items():
                     if key in cell.text:
-                        cell
+                        cell.text = cell.text.replace(key, value)
+
+                        # Форматирование текста в таблицах
+                        for paragraph in cell.paragraphs:
+                            for run in paragraph.runs:
+                                run.font.name = 'Times New Roman'
+                                run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
+                                run.font.size = Pt(13)
 
 # Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
@@ -155,9 +166,10 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         "{Название товара в родительном падеже}": data['product_name'],
         "{Сегодняшняя дата}": today_date,
         "{Полтора месяца вперед от сегодняшней даты}": future_date,
-        "{Сумма цифрами}": data['contract_amount'],
-        "{Сумма прописью}": num2words(int(data['contract_amount']), lang='ru') + " рублей 00 копеек"
+        "{Сумма работ цифрами}": data['contract_amount'],
+        "{Сумма работ прописью}": num2words(int(data['contract_amount']), lang='ru') + " рублей 00 копеек"
     }
+
     replace_placeholders(doc, placeholders)
 
     # Сохранение DOCX
