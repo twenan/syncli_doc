@@ -68,18 +68,22 @@ def create_pdf(docx_path, pdf_path):
 
 @dp.message(Command("start"))
 async def start(message: types.Message, state: FSMContext):
-    # Приветственное сообщение
     welcome_text = (
         "🤖 **Что умеет этот бот?**\n\n"
         "Этот бот предназначен для помощи в заполнении договоров.\n\n"
         "Соберём все данные для заполнения договора шаг за шагом. Готовы начать?"
     )
 
-    # Клавиатура с кнопкой
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(types.KeyboardButton("🚀 Начать заполнение договора"))
+    # Правильное создание клавиатуры
+    keyboard = types.ReplyKeyboardMarkup(
+        keyboard=[
+            [types.KeyboardButton(text="🚀 Начать заполнение договора")]
+        ],
+        resize_keyboard=True
+    )
 
     await message.answer(welcome_text, reply_markup=keyboard, parse_mode="Markdown")
+
 
 
 # хендлер для кнопки "🚀 Начать заполнение договора"
