@@ -114,6 +114,8 @@ async def get_product_name(message: types.Message, state: FSMContext):
     await message.answer("Введите банковские реквизиты (ИНН, ОГРНИП, расчетный счет, банк, БИК, корр. счет, телефон):")
     await state.set_state(ContractStates.GET_BANK_DETAILS)
 
+import logging
+
 # Обработчик ввода банковских реквизитов
 @dp.message(ContractStates.GET_BANK_DETAILS)
 async def get_bank_details(message: types.Message, state: FSMContext):
@@ -121,35 +123,51 @@ async def get_bank_details(message: types.Message, state: FSMContext):
     data = await state.get_data()
 
     # Заполнение шаблона
-    doc = Document(TEMPLATE_PATH)
-    placeholders = {
-        "{Заказчик}": f"Индивидуальный Предприниматель {data['customer_name']}",
-        "{Сегодняшняя дата}": datetime.datetime.now().strftime("%d.%m.%Y"),
-        "{Название товара в родительном падеже}": data['product_name'],
-        "{Стоимость работ цифрами}": data['contract_amount'],
-        "{Стоимость работ прописью}": num2words(int(data['contract_amount']), lang='ru') + " рублей 00 копеек",
-        "{Банковские реквизиты}": data['bank_details']
-    }
-    replace_placeholders(doc, placeholders)
+    try:
+        doc = Document(TEMPLATE_PATH)
+        placeholders = {
+            "{Заказчик}": f"Индивидуальный Предприниматель {data['customer_name']}",
+            "{Сегодняшняя дата}": datetime.datetime.now().strftime("%d.%m.%Y"),
+            "{Название товара в родительном падеже}": data['product_name'],
+            "{Стоимость работ цифрами}": data['contract_amount'],
+            "{Стоимость работ прописью}": num2words(int(data['contract_amount']), lang='ru') + " рублей 00 копеек",
+            "{Банковские реквизиты}": data['bank_details']
+        }
+        replace_placeholders(doc, placeholders)
+    except Exception as e:
+        logging.error(f"Ошибка при заполнении шаблона: {str(e)}")
+        await message.answer(f"Ошибка при заполнении шаблона: {str(e)}")
+        return
 
     # Сохранение DOCX
-    docx_output_path = "output.docx"
-    doc.save(docx_output_path)
+    try:
+        docx_output_path = "/home/anna/syncli_doc/syncli_doc/output.docx"
+        doc.save(docx_output_path)
+    except Exception as e:
+        logging.error(f"Ошибка при сохранении DOCX: {str(e)}")
+        await message.answer(f"Ошибка при сохранении DOCX: {str(e)}")
+        return
 
     # Создание PDF
-    pdf_output_path = "output.pdf"
-    create_pdf(docx_output_path, pdf_output_path)
+    try:
+        pdf_output_path = "/home/anna/syncli_doc/syncli_doc/output.pdf"
+        create_pdf(docx_output_path, pdf_output_path)
+    except Exception as e:
+        logging.error(f"Ошибка при создании PDF: {str(e)}")
+        await message.answer(f"Ошибка при создании PDF: {str(e)}")
+        return
 
-    # Проверим, созданы ли файлы
+    # Проверка существования файлов
     if os.path.exists(docx_output_path) and os.path.exists(pdf_output_path):
-        # Отправка документов пользователю
         try:
-            await message.answer("Готовый договор отправлен:")
+            await message.answer("Готовый договор создан и отправлен:")
             await message.answer_document(types.FSInputFile(docx_output_path))
             await message.answer_document(types.FSInputFile(pdf_output_path))
         except Exception as e:
+            logging.error(f"Ошибка при отправке файла: {str(e)}")
             await message.answer(f"Ошибка при отправке файла: {str(e)}")
     else:
+        logging.error("Ошибка: файлы не были созданы.")
         await message.answer("Ошибка: не удалось создать файлы договора.")
 
     await state.clear()
