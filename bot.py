@@ -170,7 +170,13 @@ async def start_contract_filling(message: types.Message, state: FSMContext):
     await message.answer("Введите ФИО заказчика:")
     await state.set_state(ContractStates.GET_CUSTOMER_NAME)
 
-import re  # Добавляем регулярные выражения
+@dp.message(ContractStates.GET_CUSTOMER_NAME)
+async def get_customer_name(message: types.Message, state: FSMContext):
+    await state.update_data(customer_name=message.text)
+    await message.answer("Введите сумму договора (цифрами):")
+    await state.update_data(customer_name=message.text)  # ✅ Сохраняем в state
+    await state.set_state(ContractStates.GET_CONTRACT_AMOUNT)  # 🔹 Указываем следующее состояние
+
 
 import re  # Добавляем регулярные выражения
 
@@ -231,17 +237,17 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         "{сегодняшняя дата}": today_date,
         "{полтора месяца вперед от сегодняшней даты}": future_date,
         "{contract_amount}": str(contract_amount),
-        "{стоимость работ прописью}": num2words(contract_amount, lang="ru") + " рублей 00 копеек",
+        "{стоимость работ прописью}": num2words(contract_amount, lang="ru"),
         "{юридический адрес заказчика}": parsed_data["customer_name"],
         "{ИНН заказчика}": parsed_data["inn"],
         "{ОГРН/ОГРНИП заказчика}": parsed_data["ogrnip"],
-        "{ОКПО заказчика}": "Не указано",  # Не извлекается автоматически
-        "{ОКТМО заказчика}": "Не указано",
+        "{ОКПО заказчика}": parsed_data["okpo"], 
+        "{ОКТМО заказчика}": parsed_data["oktmo"],
         "{расчетный счет заказчика}": parsed_data["account_number"],
         "{банк заказчика}": parsed_data["bank_name"],
         "{корреспондентский счет банка заказчика}": parsed_data["correspondent_account"],
         "{БИК банка заказчика}": parsed_data["bik"],
-        "{телефон заказчика}": "Не указано"  # Не извлекается автоматически
+        "{телефон заказчика}": parsed_data["phone"]
     }
 
     # Проверяем, какие поля не удалось заполнить
