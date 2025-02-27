@@ -256,7 +256,7 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         "{стоимость работ прописью}": num2words(contract_amount, lang="ru"),
         "{юридический адрес заказчика}": parsed_data["customer_name"],
         "{ИНН заказчика}": parsed_data["inn"],
-        "{ОГРН/ОГРНИП заказчика}": parsed_data["ogrnip"],
+        "{ОГРНИП заказчика}": parsed_data["ogrnip"],
         "{ОКПО заказчика}": parsed_data["okpo"], 
         "{ОКТМО заказчика}": parsed_data["oktmo"],
         "{расчетный счет заказчика}": parsed_data["account_number"],
