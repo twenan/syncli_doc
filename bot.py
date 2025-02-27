@@ -41,69 +41,57 @@ TEMPLATE_PATH = "template.docx"
 
 # ✅ Функция для замены плейсхолдеров
 def replace_placeholders(doc, placeholders):
-    replaced = set()  # Множество для отслеживания заменённых плейсхолдеров
+    replaced = set()  # Множество замененных плейсхолдеров
 
-    # Замена в параграфах
     for paragraph in doc.paragraphs:
-        full_text = ''.join(run.text for run in paragraph.runs)
-        logging.info(f"Текст параграфа до замены: {full_text}")
+        full_text = ''.join(run.text for run in paragraph.runs)  # Полный текст из runs
+        logging.info(f"Текст параграфа ДО замены: {full_text}")
 
         for key, value in placeholders.items():
             if key.lower() in full_text.lower() and key not in replaced:
-                logging.info(f"🔄 Заменяем плейсхолдер '{key}' в параграфе на '{value}'")
+                logging.info(f"🔄 Заменяем '{key}' на '{value}'")
 
-                # Заменяем плейсхолдер на значение
-                updated_text = full_text.replace(key, value)
+                # Разбиваем текст плейсхолдера по `runs`, заменяем только внутри них
+                remaining_text = full_text.replace(key, value)  # Обновленный текст
 
-                # Очищаем текущие runs
+                # Очищаем `runs` перед обновлением
                 for run in paragraph.runs:
                     run.text = ""
 
-                # Вставляем обновлённый текст
-                if paragraph.runs:
-                    paragraph.runs[0].text = updated_text
+                # Записываем обратно в первый `run`
+                paragraph.runs[0].text = remaining_text
 
-                # Форматирование текста
+                # Форматирование
                 for run in paragraph.runs:
                     run.font.name = 'Times New Roman'
                     run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
                     run.font.size = Pt(13)
 
-                # Выравнивание текста
+                # Выравнивание
                 if key.lower() == "{сегодняшняя дата 1}":
-                    logging.info("✅ Выравнивание по центру для даты")
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 else:
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
-                # Добавляем плейсхолдер в множество заменённых
-                replaced.add(key)
+                replaced.add(key)  # Помечаем плейсхолдер как замененный
 
-    # Замена в таблицах
+    # Заменяем плейсхолдеры в таблицах (аналогично)
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for paragraph in cell.paragraphs:
                     full_text = paragraph.text
-                    logging.info(f"Текст ячейки таблицы до замены: {full_text}")
-
                     for key, value in placeholders.items():
                         if key.lower() in full_text.lower() and key not in replaced:
-                            logging.info(f"🔄 Заменяем плейсхолдер '{key}' в таблице на '{value}'")
+                            logging.info(f"🔄 Заменяем '{key}' в таблице на '{value}'")
 
-                            # Заменяем плейсхолдер на значение
-                            updated_text = full_text.replace(key, value)
-
-                            # Очищаем текущие runs
+                            # Очищаем текущие runs и заменяем текст
                             for run in paragraph.runs:
                                 run.text = ""
 
-                            # Вставляем обновлённый текст
-                            if paragraph.runs:
-                                paragraph.runs[0].text = updated_text
-
-                            # Добавляем плейсхолдер в множество заменённых
+                            paragraph.runs[0].text = full_text.replace(key, value)
                             replaced.add(key)
+
 
 # ✅ Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
