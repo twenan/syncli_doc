@@ -173,7 +173,7 @@ async def get_bank_details(message: types.Message, state: FSMContext):
     # Проверяем корректность ввода суммы
     try:
         contract_amount = int(data.get('contract_amount', '0').replace(" ", ""))
-        logging.info(f"💰 Сумма работ цифрами: {contract_amount}")
+        logging.info(f"💰 Сумма работ: {contract_amount}")
     except ValueError:
         logging.error(f"❌ Некорректное значение суммы работ: {data.get('contract_amount', '0')}")
         contract_amount = 0
@@ -184,7 +184,7 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         "{название товара в родительном падеже}": data.get('product_name', 'Пустое значение'),
         "{сегодняшняя дата}": today_date,
         "{полтора месяца вперед от сегодняшней даты}": future_date,
-        "{стоимость работ цифрами}": str(contract_amount),  # Сумма цифрами
+        "{стоимость работ}": str(contract_amount),  # Сумма цифрами
         "{стоимость работ прописью}": num2words(contract_amount, lang='ru') + " рублей 00 копеек"  # Сумма прописью
     }
 
