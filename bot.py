@@ -59,46 +59,55 @@ def debug_placeholder_replacement(doc, placeholders):
 
 # ✅ Функция для замены плейсхолдеров
 def replace_placeholders(doc, placeholders):
-    replaced = set()
+    replaced = set()  # Множество замененных плейсхолдеров
 
-    # Проход по обычным параграфам
     for paragraph in doc.paragraphs:
-        full_text = ''.join(run.text for run in paragraph.runs)
-        logging.info(f"🔎 Проверяем параграф: {full_text}")
+        full_text = ''.join(run.text for run in paragraph.runs)  # Полный текст из runs
+        logging.info(f"Текст параграфа ДО замены: {full_text}")
 
         for key, value in placeholders.items():
-            if key in full_text:
-                logging.info(f"✅ Найден '{key}', заменяем на '{value}'")
+            if key.lower() in full_text.lower() and key not in replaced:
+                logging.info(f"🔄 Заменяем '{key}' на '{value}'")
 
-                # Замена ТОЛЬКО В RUNS (иначе текст может сломаться)
+                # Разбиваем текст плейсхолдера по `runs`, заменяем только внутри них
+                remaining_text = full_text.replace(key, value)  # Обновленный текст
+
+                # Очищаем `runs` перед обновлением
                 for run in paragraph.runs:
-                    if key in run.text:
-                        run.text = run.text.replace(key, value)
-                        logging.info(f"🔄 Заменили в run: {run.text}")
+                    run.text = ""
 
-                # Форматирование после замены
+                # Записываем обратно в первый `run`
+                paragraph.runs[0].text = remaining_text
+
+                # Форматирование
                 for run in paragraph.runs:
                     run.font.name = 'Times New Roman'
                     run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
                     run.font.size = Pt(13)
 
-                replaced.add(key)
+                # Выравнивание
+                if key.lower() == "{сегодняшняя дата 1}":
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                else:
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
-    # Проход по таблицам
+                replaced.add(key)  # Помечаем плейсхолдер как замененный
+
+    # Заменяем плейсхолдеры в таблицах (аналогично)
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for paragraph in cell.paragraphs:
                     full_text = paragraph.text
-                    logging.info(f"🔎 Проверяем ячейку таблицы: {full_text}")
-
                     for key, value in placeholders.items():
-                        if key in full_text:
-                            logging.info(f"✅ Найден '{key}' в таблице, заменяем на '{value}'")
+                        if key.lower() in full_text.lower() and key not in replaced:
+                            logging.info(f"🔄 Заменяем '{key}' в таблице на '{value}'")
+
+                            # Очищаем текущие runs и заменяем текст
                             for run in paragraph.runs:
-                                if key in run.text:
-                                    run.text = run.text.replace(key, value)
-                                    logging.info(f"🔄 Заменили в run таблицы: {run.text}")
+                                run.text = ""
+
+                            paragraph.runs[0].text = full_text.replace(key, value)
 
                             replaced.add(key)
 
