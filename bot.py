@@ -39,23 +39,31 @@ class ContractStates(StatesGroup):
 # Шаблон договора
 TEMPLATE_PATH = "template.docx"
 
-def debug_placeholder_replacement(doc, placeholders):
-    """ Логирует найденные плейсхолдеры в документе ДО замены """
-    logging.info("🔎 Начинаем отладку поиска плейсхолдеров")
+
+def debug_placeholders(doc, placeholders):
+    logging.info("🔍 **Начинаем диагностику плейсхолдеров**")
+    found = set()
+
     for paragraph in doc.paragraphs:
-        logging.info(f"📌 Текст параграфа: '{paragraph.text}'")
         for key in placeholders.keys():
             if key in paragraph.text:
-                logging.info(f"✅ Найден плейсхолдер ВНЕ таблицы: '{key}'")
+                logging.info(f"✅ Найден плейсхолдер ВНЕ таблицы: '{key}' в тексте: {paragraph.text}")
+                found.add(key)
 
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for paragraph in cell.paragraphs:
-                    logging.info(f"📌 Текст в ячейке таблицы: '{paragraph.text}'")
                     for key in placeholders.keys():
                         if key in paragraph.text:
-                            logging.info(f"✅ Найден плейсхолдер В ТАБЛИЦЕ: '{key}'")
+                            logging.info(f"✅ Найден плейсхолдер В ТАБЛИЦЕ: '{key}' в ячейке: {paragraph.text}")
+                            found.add(key)
+
+    if not found:
+        logging.warning("⚠️ **Плейсхолдеры вообще не найдены в документе!**")
+
+    return found
+
 
 # ✅ Функция для замены плейсхолдеров
 def replace_placeholders(doc, placeholders):
@@ -190,7 +198,7 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         "{название товара в родительном падеже}": data.get('product_name', 'Пустое значение'),
         "{сегодняшняя дата}": today_date,
         "{полтора месяца вперед от сегодняшней даты}": future_date,
-        "[стоимость]": str(contract_amount),  # Сумма цифрами
+        "{contract_amount}": str(contract_amount),  # Сумма цифрами
         "{стоимость работ прописью}": num2words(contract_amount, lang='ru') + " рублей 00 копеек"  # Сумма прописью
     }
 
