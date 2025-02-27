@@ -41,57 +41,54 @@ TEMPLATE_PATH = "template.docx"
 
 # ✅ Функция для замены плейсхолдеров
 def replace_placeholders(doc, placeholders):
-    replaced = set()  # Множество замененных плейсхолдеров
+    replaced = set()  # Храним уже замененные плейсхолдеры
 
+    # 🔍 Проверяем текст в обычных параграфах
     for paragraph in doc.paragraphs:
-        full_text = ''.join(run.text for run in paragraph.runs)  # Полный текст из runs
-        logging.info(f"Текст параграфа ДО замены: {full_text}")
+        full_text = ''.join(run.text for run in paragraph.runs)
+        logging.info(f"🔎 Текст параграфа ДО замены: {full_text}")
 
         for key, value in placeholders.items():
-            if key.lower() in full_text.lower() and key not in replaced:
-                logging.info(f"🔄 Заменяем '{key}' на '{value}'")
+            if key.lower() in full_text.lower():
+                logging.info(f"🔄 Найден плейсхолдер '{key}', заменяем на '{value}'")
 
-                # Разбиваем текст плейсхолдера по `runs`, заменяем только внутри них
-                remaining_text = full_text.replace(key, value)  # Обновленный текст
-
-                # Очищаем `runs` перед обновлением
+                # Заменяем плейсхолдер по `runs`
                 for run in paragraph.runs:
-                    run.text = ""
+                    if key.lower() in run.text.lower():
+                        original_text = run.text
+                        updated_text = original_text.replace(key, value)
+                        run.text = updated_text
+                        logging.info(f"✅ Заменили в `run`: '{original_text}' → '{updated_text}'")
 
-                # Записываем обратно в первый `run`
-                paragraph.runs[0].text = remaining_text
-
-                # Форматирование
+                # Форматируем текст после замены
                 for run in paragraph.runs:
                     run.font.name = 'Times New Roman'
                     run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
                     run.font.size = Pt(13)
 
-                # Выравнивание
-                if key.lower() == "{сегодняшняя дата 1}":
-                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                else:
-                    paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                replaced.add(key)  # Запоминаем, что этот плейсхолдер заменили
 
-                replaced.add(key)  # Помечаем плейсхолдер как замененный
-
-    # Заменяем плейсхолдеры в таблицах (аналогично)
+    # 🔍 Проверяем текст в таблицах
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for paragraph in cell.paragraphs:
                     full_text = paragraph.text
+                    logging.info(f"📌 Текст в ячейке таблицы ДО замены: {full_text}")
+
                     for key, value in placeholders.items():
-                        if key.lower() in full_text.lower() and key not in replaced:
-                            logging.info(f"🔄 Заменяем '{key}' в таблице на '{value}'")
+                        if key.lower() in full_text.lower():
+                            logging.info(f"🔄 Найден плейсхолдер '{key}' в таблице, заменяем на '{value}'")
 
-                            # Очищаем текущие runs и заменяем текст
+                            # Заменяем текст в ячейке
                             for run in paragraph.runs:
-                                run.text = ""
+                                if key.lower() in run.text.lower():
+                                    original_text = run.text
+                                    updated_text = original_text.replace(key, value)
+                                    run.text = updated_text
+                                    logging.info(f"✅ Заменили в `run` таблицы: '{original_text}' → '{updated_text}'")
 
-                            paragraph.runs[0].text = full_text.replace(key, value)
-                            replaced.add(key)
-
+                            replaced.add(key)  # Отмечаем замену
 
 # ✅ Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
