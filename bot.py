@@ -124,7 +124,14 @@ def replace_placeholders(doc, placeholders):
 
                     # 🔹 Записываем обновленный текст в первый run
                     if paragraph.runs:
-                        paragraph.runs[0].text = modified_text
+                        paragraph.runs[0].text = modified_text  
+                        
+                    # Форматируем текст
+                    for run in paragraph.runs:
+                        run.font.name = 'Times New Roman'
+                        run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
+                        run.font.size = Pt(13)
+                    
 
 # ✅ Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
@@ -163,30 +170,46 @@ async def start_contract_filling(message: types.Message, state: FSMContext):
     await message.answer("Введите ФИО заказчика:")
     await state.set_state(ContractStates.GET_CUSTOMER_NAME)
 
-# ✅ Обработчики ввода данных
-@dp.message(ContractStates.GET_CUSTOMER_NAME)
-async def get_customer_name(message: types.Message, state: FSMContext):
-    await state.update_data(customer_name=message.text)
-    await message.answer("Введите сумму договора (цифрами):")
-    await state.set_state(ContractStates.GET_CONTRACT_AMOUNT)
+import re  # Добавляем регулярные выражения
 
-@dp.message(ContractStates.GET_CONTRACT_AMOUNT)
-async def get_contract_amount(message: types.Message, state: FSMContext):
-    await state.update_data(contract_amount=message.text.strip())
-    await message.answer("Введите название товара в родительном падеже:")
-    await state.set_state(ContractStates.GET_PRODUCT_NAME)
+import re  # Добавляем регулярные выражения
 
-@dp.message(ContractStates.GET_PRODUCT_NAME)
-async def get_product_name(message: types.Message, state: FSMContext):
-    await state.update_data(product_name=message.text)
-    await message.answer("Введите банковские реквизиты:")
-    await state.set_state(ContractStates.GET_BANK_DETAILS)
+# Парсер реквизитов заказчика
+def parse_bank_details(raw_text):
+    """Разбирает текст и выделяет из него реквизиты клиента."""
+    
+    patterns = {
+        "customer_name": r"(?:Наименование|ФИО|ИП|Индивидуальный предприниматель):?\s*([А-ЯЁа-яё\s]+)",
+        "inn": r"ИНН:?\s*(\d{10,12})",
+        "ogrnip": r"ОГРНИП:?\s*(\d+)",
+        "account_number": r"Расч[её]тный\s*сч[её]т:?\s*(\d{20})",
+        "bank_name": r"Наименование:\s*([А-ЯЁа-яё\s]+(?:банк|БАНК|Bank)?)",
+        "bik": r"БИК:?\s*(\d{9})",
+        "correspondent_account": r"Корсч[её]т:?\s*(\d{20})",
+        "kpp": r"КПП:?\s*(\d{9})",
+        "okpo": r"ОКПО:?\s*(\d{8})",  # 🔹 Добавлено извлечение ОКПО (обычно 8 цифр)
+        "oktmo": r"ОКТМО:?\s*(\d{8})",  # 🔹 Добавлено извлечение ОКТМО (обычно 8 цифр)
+        "phone": r"Тел(?:ефон)?:?\s*([\d\-\+\(\)\s]{10,16})"  # 🔹 Извлечение телефона
+    }
 
-# ✅ Обработчик ввода банковских реквизитов
+    extracted_data = {}
+
+    for field, pattern in patterns.items():
+        match = re.search(pattern, raw_text, re.IGNORECASE)
+        extracted_data[field] = match.group(1) if match else "Не указано"
+
+    return extracted_data
+
+
 # ✅ Обработчик ввода банковских реквизитов
 @dp.message(ContractStates.GET_BANK_DETAILS)
 async def get_bank_details(message: types.Message, state: FSMContext):
-    await state.update_data(bank_details=message.text)
+    raw_text = message.text.strip()  # Убираем лишние пробелы
+
+    # Парсим данные из сообщения
+    parsed_data = parse_bank_details(raw_text)
+
+    # Получаем сохраненные данные
     data = await state.get_data()
 
     today_date = datetime.now().strftime("%d.%m.%Y")
@@ -194,31 +217,48 @@ async def get_bank_details(message: types.Message, state: FSMContext):
 
     # Проверяем корректность ввода суммы
     try:
-        contract_amount = int(data.get('contract_amount', '0').replace(" ", ""))
+        contract_amount = int(data.get("contract_amount", "0").replace(" ", ""))
         logging.info(f"💰 Сумма работ: {contract_amount}")
     except ValueError:
         logging.error(f"❌ Некорректное значение суммы работ: {data.get('contract_amount', '0')}")
         contract_amount = 0
 
+    # Заполняем placeholders из `parsed_data`
     placeholders = {
         "{сегодняшняя дата 1}": today_date,
-        "{заказчик 1}": f"Индивидуальный Предприниматель {data.get('customer_name', 'Пустое значение')}",
-        "{название товара в родительном падеже}": data.get('product_name', 'Пустое значение'),
+        "{заказчик 1}": f"Индивидуальный Предприниматель {parsed_data['customer_name']}",
+        "{название товара в родительном падеже}": data.get("product_name", "Пустое значение"),
         "{сегодняшняя дата}": today_date,
         "{полтора месяца вперед от сегодняшней даты}": future_date,
         "{contract_amount}": str(contract_amount),
-        "{стоимость работ прописью}": num2words(contract_amount, lang='ru') + " рублей 00 копеек"
+        "{стоимость работ прописью}": num2words(contract_amount, lang="ru") + " рублей 00 копеек",
+        "{юридический адрес заказчика}": parsed_data["customer_name"],
+        "{ИНН заказчика}": parsed_data["inn"],
+        "{ОГРН/ОГРНИП заказчика}": parsed_data["ogrnip"],
+        "{ОКПО заказчика}": "Не указано",  # Не извлекается автоматически
+        "{ОКТМО заказчика}": "Не указано",
+        "{расчетный счет заказчика}": parsed_data["account_number"],
+        "{банк заказчика}": parsed_data["bank_name"],
+        "{корреспондентский счет банка заказчика}": parsed_data["correspondent_account"],
+        "{БИК банка заказчика}": parsed_data["bik"],
+        "{телефон заказчика}": "Не указано"  # Не извлекается автоматически
     }
 
-    logging.info("Передаем значения для заполнения:")
+    # Проверяем, какие поля не удалось заполнить
+    missing_fields = [key for key, value in placeholders.items() if value == "Не указано"]
+
+    if missing_fields:
+        missing_text = "\n".join(f"🔹 {field}" for field in missing_fields)
+        await message.answer(f"⚠️ Не удалось автоматически распознать следующие поля:\n{missing_text}\n\nВведите их вручную.")
+        return
+
+    # Логируем значения для отладки
+    logging.info("📌 Передаем значения для заполнения:")
     for key, value in placeholders.items():
         logging.info(f"{key}: {value}")
 
-    doc = Document(TEMPLATE_PATH)
-    replace_placeholders(doc, placeholders)
-
-    # 🔹 Генерация уникального имени файла
-    customer_name = data.get('customer_name', 'Без_имени').replace(" ", "_")
+    # ✅ Генерация уникального имени файла
+    customer_name = parsed_data["customer_name"].replace(" ", "_")
     file_date = datetime.now().strftime("%d-%m-%Y")  # Дата в имени файла
     file_name = f"Договор_{customer_name}_{file_date}"
 
@@ -226,11 +266,15 @@ async def get_bank_details(message: types.Message, state: FSMContext):
     docx_output_path = f"/home/anna/syncli_doc/syncli_doc/{file_name}.docx"
     pdf_output_path = f"/home/anna/syncli_doc/syncli_doc/{file_name}.pdf"
 
+    # ✅ Загрузка шаблона и замена плейсхолдеров
+    doc = Document(TEMPLATE_PATH)
+    replace_placeholders(doc, placeholders)
+
     # ✅ Сохранение DOCX
     try:
         doc.save(docx_output_path)
     except Exception as e:
-        logging.error(f"Ошибка при сохранении DOCX: {str(e)}")
+        logging.error(f"❌ Ошибка при сохранении DOCX: {str(e)}")
         await message.answer(f"Ошибка при сохранении DOCX: {str(e)}")
         return
 
@@ -238,7 +282,7 @@ async def get_bank_details(message: types.Message, state: FSMContext):
     try:
         create_pdf(docx_output_path, pdf_output_path)
     except Exception as e:
-        logging.error(f"Ошибка при создании PDF: {str(e)}")
+        logging.error(f"❌ Ошибка при создании PDF: {str(e)}")
         await message.answer(f"Ошибка при создании PDF: {str(e)}")
         return
 
@@ -249,13 +293,14 @@ async def get_bank_details(message: types.Message, state: FSMContext):
             await message.answer_document(types.FSInputFile(docx_output_path))
             await message.answer_document(types.FSInputFile(pdf_output_path))
         except Exception as e:
-            logging.error(f"Ошибка при отправке файла: {str(e)}")
+            logging.error(f"❌ Ошибка при отправке файла: {str(e)}")
             await message.answer(f"Ошибка при отправке файла: {str(e)}")
     else:
-        logging.error("Ошибка: файлы не были созданы.")
+        logging.error("❌ Ошибка: файлы не были созданы.")
         await message.answer("Ошибка: не удалось создать файлы договора.")
 
     await state.clear()
+
 
 # ✅ Основная функция запуска бота
 async def main():
