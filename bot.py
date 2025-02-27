@@ -177,6 +177,18 @@ async def get_customer_name(message: types.Message, state: FSMContext):
     await state.update_data(customer_name=message.text)  # ✅ Сохраняем в state
     await state.set_state(ContractStates.GET_CONTRACT_AMOUNT)  # 🔹 Указываем следующее состояние
 
+@dp.message(ContractStates.GET_CONTRACT_AMOUNT)
+async def get_contract_amount(message: types.Message, state: FSMContext):
+    await state.update_data(contract_amount=message.text.strip())
+    await message.answer("Введите название товара в родительном падеже:")
+    await state.set_state(ContractStates.GET_PRODUCT_NAME)
+
+@dp.message(ContractStates.GET_PRODUCT_NAME)
+async def get_product_name(message: types.Message, state: FSMContext):
+    await state.update_data(product_name=message.text)
+    await message.answer("Введите банковские реквизиты:")
+    await state.set_state(ContractStates.GET_BANK_DETAILS)
+
 
 import re  # Добавляем регулярные выражения
 
