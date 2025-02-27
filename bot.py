@@ -183,6 +183,7 @@ async def get_product_name(message: types.Message, state: FSMContext):
     await state.set_state(ContractStates.GET_BANK_DETAILS)
 
 # ✅ Обработчик ввода банковских реквизитов
+# ✅ Обработчик ввода банковских реквизитов
 @dp.message(ContractStates.GET_BANK_DETAILS)
 async def get_bank_details(message: types.Message, state: FSMContext):
     await state.update_data(bank_details=message.text)
@@ -200,13 +201,13 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         contract_amount = 0
 
     placeholders = {
-        "{сегодняшняя дата 1}": today_date,  # Сегодняшняя дата
+        "{сегодняшняя дата 1}": today_date,
         "{заказчик 1}": f"Индивидуальный Предприниматель {data.get('customer_name', 'Пустое значение')}",
         "{название товара в родительном падеже}": data.get('product_name', 'Пустое значение'),
         "{сегодняшняя дата}": today_date,
         "{полтора месяца вперед от сегодняшней даты}": future_date,
-        "{contract_amount}": str(contract_amount),  # Сумма цифрами
-        "{стоимость работ прописью}": num2words(contract_amount, lang='ru') + " рублей 00 копеек"  # Сумма прописью
+        "{contract_amount}": str(contract_amount),
+        "{стоимость работ прописью}": num2words(contract_amount, lang='ru') + " рублей 00 копеек"
     }
 
     logging.info("Передаем значения для заполнения:")
@@ -216,28 +217,35 @@ async def get_bank_details(message: types.Message, state: FSMContext):
     doc = Document(TEMPLATE_PATH)
     replace_placeholders(doc, placeholders)
 
-    # Сохранение DOCX
+    # 🔹 Генерация уникального имени файла
+    customer_name = data.get('customer_name', 'Без_имени').replace(" ", "_")
+    file_date = datetime.now().strftime("%d-%m-%Y")  # Дата в имени файла
+    file_name = f"Договор_{customer_name}_{file_date}"
+
+    # ✅ Пути к файлам
+    docx_output_path = f"/home/anna/syncli_doc/syncli_doc/{file_name}.docx"
+    pdf_output_path = f"/home/anna/syncli_doc/syncli_doc/{file_name}.pdf"
+
+    # ✅ Сохранение DOCX
     try:
-        docx_output_path = "/home/anna/syncli_doc/syncli_doc/output.docx"
         doc.save(docx_output_path)
     except Exception as e:
         logging.error(f"Ошибка при сохранении DOCX: {str(e)}")
         await message.answer(f"Ошибка при сохранении DOCX: {str(e)}")
         return
 
-    # Создание PDF
+    # ✅ Создание PDF
     try:
-        pdf_output_path = "/home/anna/syncli_doc/syncli_doc/output.pdf"
         create_pdf(docx_output_path, pdf_output_path)
     except Exception as e:
         logging.error(f"Ошибка при создании PDF: {str(e)}")
         await message.answer(f"Ошибка при создании PDF: {str(e)}")
         return
 
-    # Отправка готового договора
+    # ✅ Отправка готового договора
     if os.path.exists(docx_output_path) and os.path.exists(pdf_output_path):
         try:
-            await message.answer("Готовый договор создан и отправлен:")
+            await message.answer(f"✅ Готовый договор `{file_name}` создан и отправлен:")
             await message.answer_document(types.FSInputFile(docx_output_path))
             await message.answer_document(types.FSInputFile(pdf_output_path))
         except Exception as e:
