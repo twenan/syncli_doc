@@ -190,7 +190,7 @@ async def get_bank_details(message: types.Message, state: FSMContext):
         "{название товара в родительном падеже}": data.get('product_name', 'Пустое значение'),
         "{сегодняшняя дата}": today_date,
         "{полтора месяца вперед от сегодняшней даты}": future_date,
-        "{стоимость}": str(contract_amount),  # Сумма цифрами
+        "[стоимость]": str(contract_amount),  # Сумма цифрами
         "{стоимость работ прописью}": num2words(contract_amount, lang='ru') + " рублей 00 копеек"  # Сумма прописью
     }
 
