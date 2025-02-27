@@ -69,55 +69,62 @@ def debug_placeholders(doc, placeholders):
 def replace_placeholders(doc, placeholders):
     replaced = set()  # Множество замененных плейсхолдеров
 
+    # 🔹 Обработка плейсхолдеров в параграфах
     for paragraph in doc.paragraphs:
         full_text = ''.join(run.text for run in paragraph.runs)  # Полный текст из runs
-        logging.info(f"Текст параграфа ДО замены: {full_text}")
+        logging.info(f"📌 Текст параграфа ДО замены: {full_text}")
 
+        modified_text = full_text  # Создаём копию текста для работы
+
+        # 🔹 Проходим по каждому плейсхолдеру и заменяем
         for key, value in placeholders.items():
-            if key.lower() in full_text.lower() and key not in replaced:
+            if key.lower() in modified_text.lower():  # Проверяем наличие в тексте
                 logging.info(f"🔄 Заменяем '{key}' на '{value}'")
 
-                # Разбиваем текст плейсхолдера по `runs`, заменяем только внутри них
-                remaining_text = full_text.replace(key, value)  # Обновленный текст
+                # 🔹 Заменяем все плейсхолдеры, если они идут подряд
+                modified_text = modified_text.replace(key, value)
 
-                # Очищаем `runs` перед обновлением
-                for run in paragraph.runs:
-                    run.text = ""
+        # 🔹 Очищаем текущие runs перед обновлением текста
+        for run in paragraph.runs:
+            run.text = ""
 
-                # Записываем обратно в первый `run`
-                paragraph.runs[0].text = remaining_text
+        # 🔹 Записываем обновленный текст в первый run
+        if paragraph.runs:
+            paragraph.runs[0].text = modified_text
 
-                # Форматирование
-                for run in paragraph.runs:
-                    run.font.name = 'Times New Roman'
-                    run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
-                    run.font.size = Pt(13)
+        # 🔹 Форматирование
+        for run in paragraph.runs:
+            run.font.name = 'Times New Roman'
+            run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
+            run.font.size = Pt(13)
 
-                # Выравнивание
-                if key.lower() == "{сегодняшняя дата 1}":
-                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                else:
-                    paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        # 🔹 Выравнивание
+        if "{сегодняшняя дата 1}" in modified_text:
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        else:
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
-                replaced.add(key)  # Помечаем плейсхолдер как замененный
-
-    # Заменяем плейсхолдеры в таблицах (аналогично)
+    # 🔹 Обработка плейсхолдеров в таблицах
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for paragraph in cell.paragraphs:
                     full_text = paragraph.text
+                    modified_text = full_text  # Копия текста
+
+                    # 🔹 Проходим по каждому плейсхолдеру
                     for key, value in placeholders.items():
-                        if key.lower() in full_text.lower() and key not in replaced:
+                        if key.lower() in modified_text.lower():
                             logging.info(f"🔄 Заменяем '{key}' в таблице на '{value}'")
+                            modified_text = modified_text.replace(key, value)
 
-                            # Очищаем текущие runs и заменяем текст
-                            for run in paragraph.runs:
-                                run.text = ""
+                    # 🔹 Очищаем текущие runs перед обновлением текста
+                    for run in paragraph.runs:
+                        run.text = ""
 
-                            paragraph.runs[0].text = full_text.replace(key, value)
-
-                            replaced.add(key)
+                    # 🔹 Записываем обновленный текст в первый run
+                    if paragraph.runs:
+                        paragraph.runs[0].text = modified_text
 
 # ✅ Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
