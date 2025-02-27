@@ -39,6 +39,8 @@ class ContractStates(StatesGroup):
 # Шаблон договора
 TEMPLATE_PATH = "template.docx"
 
+logging.info(f"🔍 Проверяем текст перед заменой: [{full_text}]")
+
 # Функция для замены плейсхолдеров
 def replace_placeholders(doc, placeholders):
     replaced = set()  # Множество для отслеживания заменённых плейсхолдеров
@@ -107,33 +109,7 @@ def replace_placeholders(doc, placeholders):
                             # Добавляем плейсхолдер в множество заменённых
                             replaced.add(key)
 
-    # Замена в таблицах
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for paragraph in cell.paragraphs:
-                    # Объединяем все runs в ячейке таблицы в один текст
-                    full_text = ''.join(run.text for run in paragraph.runs)
-                    logging.info(f"Текст ячейки таблицы до замены: {full_text}")
-
-                    for key, value in placeholders.items():
-                        if key.lower() in full_text.lower() and key not in replaced:
-                            logging.info(f"🔄 Заменяем плейсхолдер '{key}' в таблице на '{value}'")
-
-                            # Заменяем плейсхолдер на значение
-                            updated_text = full_text.replace(key, value)
-
-                            # Очищаем текущие runs
-                            for run in paragraph.runs:
-                                run.text = ""
-
-                            # Вставляем обновлённый текст в первый run
-                            if paragraph.runs:
-                                paragraph.runs[0].text = updated_text
-
-                            # Добавляем плейсхолдер в множество заменённых
-                            replaced.add(key)
-
+    
 # Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
     pdf = FPDF()
