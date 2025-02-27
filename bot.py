@@ -39,56 +39,68 @@ class ContractStates(StatesGroup):
 # Шаблон договора
 TEMPLATE_PATH = "template.docx"
 
+def debug_placeholder_replacement(doc, placeholders):
+    """ Логирует найденные плейсхолдеры в документе ДО замены """
+    logging.info("🔎 Начинаем отладку поиска плейсхолдеров")
+    for paragraph in doc.paragraphs:
+        logging.info(f"📌 Текст параграфа: '{paragraph.text}'")
+        for key in placeholders.keys():
+            if key in paragraph.text:
+                logging.info(f"✅ Найден плейсхолдер ВНЕ таблицы: '{key}'")
+
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    logging.info(f"📌 Текст в ячейке таблицы: '{paragraph.text}'")
+                    for key in placeholders.keys():
+                        if key in paragraph.text:
+                            logging.info(f"✅ Найден плейсхолдер В ТАБЛИЦЕ: '{key}'")
+
 # ✅ Функция для замены плейсхолдеров
 def replace_placeholders(doc, placeholders):
-    replaced = set()  # Храним уже замененные плейсхолдеры
+    replaced = set()
 
-    # 🔍 Проверяем текст в обычных параграфах
+    # Проход по обычным параграфам
     for paragraph in doc.paragraphs:
         full_text = ''.join(run.text for run in paragraph.runs)
-        logging.info(f"🔎 Текст параграфа ДО замены: {full_text}")
+        logging.info(f"🔎 Проверяем параграф: {full_text}")
 
         for key, value in placeholders.items():
-            if key.lower() in full_text.lower():
-                logging.info(f"🔄 Найден плейсхолдер '{key}', заменяем на '{value}'")
+            if key in full_text:
+                logging.info(f"✅ Найден '{key}', заменяем на '{value}'")
 
-                # Заменяем плейсхолдер по `runs`
+                # Замена ТОЛЬКО В RUNS (иначе текст может сломаться)
                 for run in paragraph.runs:
-                    if key.lower() in run.text.lower():
-                        original_text = run.text
-                        updated_text = original_text.replace(key, value)
-                        run.text = updated_text
-                        logging.info(f"✅ Заменили в `run`: '{original_text}' → '{updated_text}'")
+                    if key in run.text:
+                        run.text = run.text.replace(key, value)
+                        logging.info(f"🔄 Заменили в run: {run.text}")
 
-                # Форматируем текст после замены
+                # Форматирование после замены
                 for run in paragraph.runs:
                     run.font.name = 'Times New Roman'
                     run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
                     run.font.size = Pt(13)
 
-                replaced.add(key)  # Запоминаем, что этот плейсхолдер заменили
+                replaced.add(key)
 
-    # 🔍 Проверяем текст в таблицах
+    # Проход по таблицам
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for paragraph in cell.paragraphs:
                     full_text = paragraph.text
-                    logging.info(f"📌 Текст в ячейке таблицы ДО замены: {full_text}")
+                    logging.info(f"🔎 Проверяем ячейку таблицы: {full_text}")
 
                     for key, value in placeholders.items():
-                        if key.lower() in full_text.lower():
-                            logging.info(f"🔄 Найден плейсхолдер '{key}' в таблице, заменяем на '{value}'")
-
-                            # Заменяем текст в ячейке
+                        if key in full_text:
+                            logging.info(f"✅ Найден '{key}' в таблице, заменяем на '{value}'")
                             for run in paragraph.runs:
-                                if key.lower() in run.text.lower():
-                                    original_text = run.text
-                                    updated_text = original_text.replace(key, value)
-                                    run.text = updated_text
-                                    logging.info(f"✅ Заменили в `run` таблицы: '{original_text}' → '{updated_text}'")
+                                if key in run.text:
+                                    run.text = run.text.replace(key, value)
+                                    logging.info(f"🔄 Заменили в run таблицы: {run.text}")
 
-                            replaced.add(key)  # Отмечаем замену
+                            replaced.add(key)
 
 # ✅ Функция для создания PDF из DOCX
 def create_pdf(docx_path, pdf_path):
