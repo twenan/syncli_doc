@@ -16,6 +16,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.memory import MemoryStorage
 from config import Config, load_config
+from aiogram.filters import Text
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -146,6 +147,7 @@ def create_pdf(docx_path, pdf_path):
 
     pdf.output(pdf_path)
 
+
 # ✅ Хендлер команды /start
 @dp.message(Command("start"))
 async def start(message: types.Message, state: FSMContext):
@@ -155,17 +157,17 @@ async def start(message: types.Message, state: FSMContext):
         "Соберём все данные для заполнения договора шаг за шагом. Готовы начать?"
     )
 
-    keyboard = types.ReplyKeyboardMarkup(
+    keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [types.KeyboardButton(text="🚀 Начать заполнение договора")]
+            [KeyboardButton(text="🚀 Начать заполнение договора")]
         ],
         resize_keyboard=True
     )
 
     await message.answer(welcome_text, reply_markup=keyboard, parse_mode="Markdown")
 
-# ✅ Хендлер для кнопки "🚀 Начать заполнение договора"
-@dp.message(lambda message: message.text == "🚀 Начать заполнение договора")
+# ✅ Исправленный хендлер для кнопки "🚀 Начать заполнение договора"
+@dp.message(Text("🚀 Начать заполнение договора"))
 async def start_contract_filling(message: types.Message, state: FSMContext):
     await message.answer("Введите ФИО заказчика:")
     await state.set_state(ContractStates.GET_CUSTOMER_NAME)
@@ -230,6 +232,7 @@ def parse_bank_details(raw_text):
     logging.info(f"📌 Распознанные данные: {extracted_data}")
     
     return extracted_data
+
 
     extracted_data = {}
 
